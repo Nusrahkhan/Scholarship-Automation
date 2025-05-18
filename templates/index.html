@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MJCET Scholarship Application Portal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --soft-pink: #F7CFD8;
+            --light-lime: #F4F8D3;
+            --aqua-blue: #A6D6D6;
+            --lavender-purple: #8E7DBE;
+        }
+
+        body {
+            font-family: 'Montserrat', sans-serif;
+            scroll-behavior: smooth;
+            overflow-x: hidden;
+        }
+
+        .heading-font {
+            font-family: 'Playfair Display', serif;
+        }
+
+        .hero-section {
+            background: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)),
+                        url('https://images.unsplash.com/photo-1523050854058-8df90110c9f1?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1470&q=80');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            min-height: 100vh;
+        }
+
+        .navbar {
+            transition: all 0.3s ease;
+            background-color: transparent;
+        }
+
+        .navbar.scrolled {
+            background-color: white;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .nav-link {
+            position: relative;
+        }
+
+        .nav-link::after {
+            content: '';
+            position: absolute;
+            width: 0;
+            height: 2px;
+            bottom: -2px;
+            left: 0;
+            background-color: var(--lavender-purple);
+            transition: width 0.3s ease;
+        }
+
+        .nav-link:hover::after {
+            width: 100%;
+        }
+
+        .btn-primary {
+            background-color: var(--lavender-purple);
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 20px rgba(142, 125, 190, 0.3);
+        }
+
+        .btn-secondary {
+            background-color: var(--aqua-blue);
+            transition: all 0.3s ease;
+        }
+
+        .btn-secondary:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 20px rgba(166, 214, 214, 0.3);
+        }
+
+        .step-card {
+            transition: all 0.5s ease;
+            opacity: 0;
+            transform: translateY(50px);
+        }
+
+        .step-card.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .step-card:nth-child(1) { transition-delay: 0.1s; }
+        .step-card:nth-child(2) { transition-delay: 0.3s; }
+        .step-card:nth-child(3) { transition-delay: 0.5s; }
+        .step-card:nth-child(4) { transition-delay: 0.7s; }
+
+        .modal {
+            transition: all 0.3s ease;
+            opacity: 0;
+            visibility: hidden;
+        }
+
+        .modal.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .input-field:focus {
+            border-color: var(--lavender-purple);
+            box-shadow: 0 0 0 3px rgba(142, 125, 190, 0.2);
+        }
+
+        @media (max-width: 768px) {
+            .hero-section {
+                background-attachment: scroll;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <!-- Navigation Bar -->
+    <nav class="navbar fixed w-full z-50 py-4 px-6 md:px-12 lg:px-24">
+        <div class="flex justify-between items-center">
+            <div class="text-white text-2xl font-bold heading-font navbar-brand">MJCET Scholarships</div>
+            <div class="hidden md:flex space-x-8">
+                <a href="#" class="nav-link text-white text-lg font-medium">Home</a>
+                <a href="#" class="nav-link text-white text-lg font-medium">Faculty</a>
+                <a href="#" class="nav-link text-white text-lg font-medium">Admin</a>
+            </div>
+            <button class="md:hidden text-white text-2xl" id="mobile-menu-button">
+                <i class="fas fa-bars"></i>
+            </button>
+        </div>
+        <!-- Mobile Menu -->
+        <div class="md:hidden hidden bg-white rounded-lg shadow-lg mt-4 py-2" id="mobile-menu">
+            <a href="#" class="block px-4 py-2 text-gray-800 hover:bg-gray-100">Home</a>
+            <a href="#" class="block px-4 py-2 text-gray-800 hover:bg-gray-100">Faculty</a>
+            <a href="#" class="block px-4 py-2 text-gray-800 hover:bg-gray-100">Admin</a>
+        </div>
+    </nav>
+
+    <!-- Floating Chatbot Button -->
+    <div class="fixed bottom-6 right-6 z-50">
+        <button id="chatbot-btn" class="w-16 h-16 rounded-full bg-[#8E7DBE] text-white shadow-lg flex items-center justify-center hover:bg-[#7d6cad] transition-all transform hover:scale-110">
+            <i class="fas fa-comment-dots text-2xl"></i>
+        </button>
+    </div>
+
+    <!-- Chatbot Modal -->
+    <div class="modal fixed bottom-6 right-6 z-50 hidden" id="chatbot-modal">
+        <div class="bg-white rounded-xl shadow-xl w-80 md:w-96 overflow-hidden flex flex-col" style="height: 400px;">
+            <div class="bg-[#8E7DBE] text-white p-4 flex justify-between items-center">
+                <h3 class="font-semibold">Scholarship Assistant</h3>
+                <button id="close-chatbot" class="text-white hover:text-gray-200">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="flex-1 p-4 overflow-y-auto" id="chat-messages">
+                <div class="mb-4">
+                    <div class="bg-gray-100 rounded-lg p-3 inline-block max-w-xs">
+                        <p class="text-sm">Hello! I'm your scholarship assistant. How can I help you today?</p>
+                    </div>
+                </div>
+            </div>
+            <div class="border-t p-3">
+                <div class="flex">
+                    <input type="text" id="chat-input" class="flex-1 border rounded-l-lg px-3 py-2 focus:outline-none focus:border-[#8E7DBE]" placeholder="Type your message...">
+                    <button id="send-chat" class="bg-[#8E7DBE] text-white px-4 py-2 rounded-r-lg hover:bg-[#7d6cad]">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hero Section -->
+    <section class="hero-section flex items-center justify-center text-center text-white relative">
+        <div class="px-6 md:px-12 lg:px-24 max-w-4xl mt-16">
+            <h1 class="heading-font text-4xl md:text-6xl font-bold mb-8">MJCET Scholarships</h1>
+            <p class="text-xl mb-12">Empowering students through financial support for academic excellence</p>
+            <div class="flex flex-col sm:flex-row justify-center gap-4 mt-16">
+                <button class="btn-primary py-3 px-8 rounded-full text-white font-semibold text-lg" id="login-btn">Login</button>
+                <button class="btn-secondary py-3 px-8 rounded-full text-gray-800 font-semibold text-lg" id="signup-btn">Sign Up</button>
+            </div>
+        </div>
+        <div class="absolute bottom-8 left-0 right-0 flex justify-center">
+            <a href="#application-process" class="text-white text-4xl animate-bounce">
+                <i class="fas fa-chevron-down"></i>
+            </a>
+        </div>
+    </section>
+
+    <!-- Application Process Section -->
+    <section id="application-process" class="py-20 px-6 md:px-12 lg:px-24 bg-[#F4F8D3]">
+        <div class="max-w-6xl mx-auto">
+            <h2 class="heading-font text-3xl md:text-4xl font-bold text-center mb-4 text-gray-800">Application Process</h2>
+            <p class="text-center text-gray-600 mb-16 max-w-2xl mx-auto">Follow these simple steps to apply for the MJCET Scholarship Program and secure your financial aid for academic success.</p>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+                <!-- Step 1 -->
+                <div class="step-card bg-white p-8 rounded-xl shadow-lg">
+                    <div class="w-16 h-16 rounded-full bg-[#F7CFD8] flex items-center justify-center mb-6">
+                        <i class="fas fa-user-plus text-2xl text-gray-800"></i>
+                    </div>
+                    <h3 class="text-xl font-bold mb-3 text-gray-800">Step 1: Register</h3>
+                    <p class="text-gray-600">Create your personal account with basic information to begin your application journey.</p>
+                </div>
+
+                <!-- Step 2 -->
+                <div class="step-card bg-white p-8 rounded-xl shadow-lg">
+                    <div class="w-16 h-16 rounded-full bg-[#A6D6D6] flex items-center justify-center mb-6">
+                        <i class="fas fa-file-alt text-2xl text-gray-800"></i>
+                    </div>
+                    <h3 class="text-xl font-bold mb-3 text-gray-800">Step 2: Fill Form</h3>
+                    <p class="text-gray-600">Complete the detailed scholarship application form with your academic and financial details.</p>
+                </div>
+
+                <!-- Step 3 -->
+                <div class="step-card bg-white p-8 rounded-xl shadow-lg">
+                    <div class="w-16 h-16 rounded-full bg-[#8E7DBE] flex items-center justify-center mb-6 text-white">
+                        <i class="fas fa-file-upload text-2xl"></i>
+                    </div>
+                    <h3 class="text-xl font-bold mb-3 text-gray-800">Step 3: Upload Documents</h3>
+                    <p class="text-gray-600">Submit required documents including transcripts, income proof, and recommendation letters.</p>
+                </div>
+
+                <!-- Step 4 -->
+                <div class="step-card bg-white p-8 rounded-xl shadow-lg">
+                    <div class="w-16 h-16 rounded-full bg-[#F4F8D3] flex items-center justify-center mb-6">
+                        <i class="fas fa-check-circle text-2xl text-gray-800"></i>
+                    </div>
+                    <h3 class="text-xl font-bold mb-3 text-gray-800">Step 4: Submit & Track</h3>
+                    <p class="text-gray-600">Finalize your application and track its status through your personal dashboard.</p>
+                </div>
+            </div>
+
+            <div class="text-center mt-16">
+                <button class="btn-primary py-3 px-8 rounded-full text-white font-semibold text-lg">Apply Now</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- FAQ Section -->
+    <section class="py-20 px-6 md:px-12 lg:px-24 bg-white">
+        <div class="max-w-4xl mx-auto">
+            <h2 class="heading-font text-3xl md:text-4xl font-bold text-center mb-4 text-gray-800">Frequently Asked Questions</h2>
+            <p class="text-center text-gray-600 mb-16 max-w-2xl mx-auto">Find answers to common questions about the scholarship program.</p>
+
+            <div class="space-y-4">
+                <div class="border border-gray-200 rounded-lg overflow-hidden">
+                    <button class="faq-question w-full text-left p-6 bg-gray-50 hover:bg-gray-100 transition flex justify-between items-center">
+                        <span class="font-medium text-lg">Who is eligible to apply for the MJCET Scholarship?</span>
+                        <i class="fas fa-chevron-down transition-transform"></i>
+                    </button>
+                    <div class="faq-answer hidden p-6 bg-white">
+                        <p class="text-gray-700">Current MJCET students with a minimum GPA of 3.0 who demonstrate financial need are eligible to apply. Some scholarships may have additional requirements based on the donor's specifications.</p>
+                    </div>
+                </div>
+
+                <div class="border border-gray-200 rounded-lg overflow-hidden">
+                    <button class="faq-question w-full text-left p-6 bg-gray-50 hover:bg-gray-100 transition flex justify-between items-center">
+                        <span class="font-medium text-lg">What documents are required for the application?</span>
+                        <i class="fas fa-chevron-down transition-transform"></i>
+                    </button>
+                    <div class="faq-answer hidden p-6 bg-white">
+                        <p class="text-gray-700">You'll need to submit your most recent academic transcripts, proof of income (yours or your family's), two letters of recommendation, and a personal statement outlining your academic goals and financial need.</p>
+                    </div>
+                </div>
+
+                <div class="border border-gray-200 rounded-lg overflow-hidden">
+                    <button class="faq-question w-full text-left p-6 bg-gray-50 hover:bg-gray-100 transition flex justify-between items-center">
+                        <span class="font-medium text-lg">When is the application deadline?</span>
+                        <i class="fas fa-chevron-down transition-transform"></i>
+                    </button>
+                    <div class="faq-answer hidden p-6 bg-white">
+                        <p class="text-gray-700">The main scholarship application deadline is typically April 15th for the following academic year. However, some department-specific scholarships may have different deadlines, so we recommend checking regularly.</p>
+                    </div>
+                </div>
+
+                <div class="border border-gray-200 rounded-lg overflow-hidden">
+                    <button class="faq-question w-full text-left p-6 bg-gray-50 hover:bg-gray-100 transition flex justify-between items-center">
+                        <span class="font-medium text-lg">How are scholarship recipients selected?</span>
+                        <i class="fas fa-chevron-down transition-transform"></i>
+                    </button>
+                    <div class="faq-answer hidden p-6 bg-white">
+                        <p class="text-gray-700">Recipients are selected based on a combination of academic merit, financial need, extracurricular involvement, and the quality of their application materials. A committee reviews all complete applications.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA Section -->
+    <section class="py-20 px-6 md:px-12 lg:px-24 bg-[#8E7DBE] text-white">
+        <div class="max-w-4xl mx-auto text-center">
+            <h2 class="heading-font text-3xl md:text-4xl font-bold mb-6">Ready to Apply for Your Scholarship?</h2>
+            <p class="text-xl mb-8 max-w-2xl mx-auto">Take the first step toward securing your educational future with MJCET's scholarship program.</p>
+            <div class="flex flex-col sm:flex-row justify-center gap-4">
+                <button class="bg-white text-[#8E7DBE] py-3 px-8 rounded-full font-semibold text-lg hover:bg-gray-100 transition">Apply Now</button>
+                <button class="border-2 border-white py-3 px-8 rounded-full font-semibold text-lg hover:bg-white hover:text-[#8E7DBE] transition">Learn More</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="bg-gray-900 text-white py-12 px-6 md:px-12 lg:px-24">
+        <div class="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-8">
+            <div>
+                <h3 class="heading-font text-xl font-bold mb-4">MJCET Scholarships</h3>
+                <p class="text-gray-400">Empowering students through financial support for academic excellence since 1985.</p>
+            </div>
+
+            <div>
+                <h4 class="font-bold mb-4">Quick Links</h4>
+                <ul class="space-y-2">
+                    <li><a href="#" class="text-gray-400 hover:text-white transition">Home</a></li>
+                    <li><a href="#" class="text-gray-400 hover:text-white transition">Application Status</a></li>
+                    <li><a href="#" class="text-gray-400 hover:text-white transition">Fresh Application</a></li>
+                    <li><a href="#" class="text-gray-400 hover:text-white transition">FAQs</a></li>
+                </ul>
+            </div>
+
+            <div>
+                <h4 class="font-bold mb-4">Contact Us</h4>
+                <ul class="space-y-2 text-gray-400">
+                    <li class="flex items-center"><i class="fas fa-map-marker-alt mr-2"></i> MJCET Campus, Hyderabad</li>
+                    <li class="flex items-center"><i class="fas fa-phone mr-2"></i> +91 40 1234 5678</li>
+                    <li class="flex items-center"><i class="fas fa-envelope mr-2"></i> scholarships@mjcet.ac.in</li>
+                </ul>
+            </div>
+
+            <div>
+                <h4 class="font-bold mb-4">Follow Us</h4>
+                <div class="flex space-x-4">
+                    <a href="#" class="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center hover:bg-[#8E7DBE] transition">
+                        <i class="fab fa-facebook-f"></i>
+                    </a>
+                    <a href="#" class="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center hover:bg-[#8E7DBE] transition">
+                        <i class="fab fa-twitter"></i>
+                    </a>
+                    <a href="#" class="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center hover:bg-[#8E7DBE] transition">
+                        <i class="fab fa-instagram"></i>
+                    </a>
+                    <a href="#" class="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center hover:bg-[#8E7DBE] transition">
+                        <i class="fab fa-linkedin-in"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="border-t border-gray-800 mt-12 pt-8 text-center text-gray-500">
+            <p>&copy; 2023 MJCET Scholarship Program. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <!-- Login Modal -->
+    <div class="modal fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" id="login-modal">
+        <div class="bg-white rounded-xl p-8 max-w-md w-full mx-4 relative">
+            <button class="absolute top-4 right-4 text-gray-500 hover:text-gray-700" id="close-login">
+                <i class="fas fa-times text-2xl"></i>
+            </button>
+            <h2 class="heading-font text-2xl font-bold mb-6 text-center">Login to Your Account</h2>
+            <form id="login-form">
+                <div class="mb-4">
+                    <label for="login-email" class="block text-gray-700 mb-2">Email Address</label>
+                    <input type="email" id="login-email" class="input-field w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-[#8E7DBE]" required>
+                </div>
+                <div class="mb-6">
+                    <label for="login-password" class="block text-gray-700 mb-2">Password</label>
+                    <input type="password" id="login-password" class="input-field w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-[#8E7DBE]" required>
+                </div>
+                <button type="submit" class="btn-primary w-full py-3 rounded-full text-white font-semibold">Login</button>
+            </form>
+            <div class="text-center mt-4">
+                <a href="#" class="text-[#8E7DBE] hover:underline">Forgot password?</a>
+            </div>
+            <div class="text-center mt-6 text-gray-600">
+                Don't have an account? <a href="#" class="text-[#8E7DBE] hover:underline" id="switch-to-signup">Sign up</a>
+                <br>
+                <a href="/dashboard" class="text-[#8E7DBE] hover:underline mt-2 inline-block">Go to Dashboard (Test)</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Signup Modal -->
+    <div class="modal fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" id="signup-modal">
+        <div class="bg-white rounded-xl p-8 max-w-md w-full mx-4 relative">
+            <button class="absolute top-4 right-4 text-gray-500 hover:text-gray-700" id="close-signup">
+                <i class="fas fa-times text-2xl"></i>
+            </button>
+            <h2 class="heading-font text-2xl font-bold mb-6 text-center">Create Your Account</h2>
+            <form id="signup-form">
+                <div class="mb-4">
+                    <label for="signup-name" class="block text-gray-700 mb-2">Full Name</label>
+                    <input type="text" id="signup-name" class="input-field w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-[#8E7DBE]" required>
+                </div>
+                <div class="mb-4">
+                    <label for="signup-roll-number" class="block text-gray-700 mb-2">Roll Number</label>
+                    <input type="text" id="signup-roll-number" class="input-field w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-[#8E7DBE]" placeholder="e.g., 1604-23-733-001" required>
+                    <p class="text-xs text-gray-500 mt-1">Enter your college roll number (format: XXXX-XX-XXX-XXX)</p>
+                </div>
+                <div class="mb-4">
+                    <label for="signup-email" class="block text-gray-700 mb-2">Email Address</label>
+                    <input type="email" id="signup-email" class="input-field w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-[#8E7DBE]" placeholder="e.g., 16042175001@mjcollege.ac.in" required>
+                    <p class="text-xs text-gray-500 mt-1">Use your official college email (format: 160XXXYXXXX@mjcollege.ac.in)</p>
+                </div>
+                <div class="mb-4">
+                    <label for="signup-password" class="block text-gray-700 mb-2">Password</label>
+                    <input type="password" id="signup-password" class="input-field w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-[#8E7DBE]" required>
+                </div>
+                <div class="mb-6">
+                    <label for="signup-confirm" class="block text-gray-700 mb-2">Confirm Password</label>
+                    <input type="password" id="signup-confirm" class="input-field w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-[#8E7DBE]" required>
+                </div>
+                <button type="submit" class="btn-primary w-full py-3 rounded-full text-white font-semibold">Sign Up</button>
+            </form>
+            <div class="text-center mt-6 text-gray-600">
+                Already have an account? <a href="#" class="text-[#8E7DBE] hover:underline" id="switch-to-login">Login</a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Navbar scroll effect
+        window.addEventListener('scroll', function() {
+            const navbar = document.querySelector('.navbar');
+            if (window.scrollY > 50) {
+                navbar.classList.add('scrolled');
+                navbar.classList.remove('text-white');
+                navbar.querySelector('.navbar-brand').classList.remove('text-white');
+                navbar.querySelector('.navbar-brand').classList.add('text-gray-800');
+                const navLinks = document.querySelectorAll('.nav-link');
+                navLinks.forEach(link => {
+                    link.classList.remove('text-white');
+                    link.classList.add('text-gray-800');
+                });
+            } else {
+                navbar.classList.remove('scrolled');
+                navbar.classList.add('text-white');
+                navbar.querySelector('.navbar-brand').classList.add('text-white');
+                navbar.querySelector('.navbar-brand').classList.remove('text-gray-800');
+                const navLinks = document.querySelectorAll('.nav-link');
+                navLinks.forEach(link => {
+                    link.classList.add('text-white');
+                    link.classList.remove('text-gray-800');
+                });
+            }
+        });
+        // Mobile menu toggle
+        document.getElementById('mobile-menu-button').addEventListener('click', function() {
+            const menu = document.getElementById('mobile-menu');
+            menu.classList.toggle('hidden');
+        });
+        // Modal functionality
+        const loginBtn = document.getElementById('login-btn');
+        const signupBtn = document.getElementById('signup-btn');
+        const loginModal = document.getElementById('login-modal');
+        const signupModal = document.getElementById('signup-modal');
+        const closeLogin = document.getElementById('close-login');
+        const closeSignup = document.getElementById('close-signup');
+        const switchToSignup = document.getElementById('switch-to-signup');
+        const switchToLogin = document.getElementById('switch-to-login');
+        loginBtn.addEventListener('click', function() {
+            loginModal.classList.add('active');
+        });
+        signupBtn.addEventListener('click', function() {
+            signupModal.classList.add('active');
+        });
+        closeLogin.addEventListener('click', function() {
+            loginModal.classList.remove('active');
+        });
+        closeSignup.addEventListener('click', function() {
+            signupModal.classList.remove('active');
+        });
+        switchToSignup.addEventListener('click', function(e) {
+            e.preventDefault();
+            loginModal.classList.remove('active');
+            signupModal.classList.add('active');
+        });
+        switchToLogin.addEventListener('click', function(e) {
+            e.preventDefault();
+            signupModal.classList.remove('active');
+            loginModal.classList.add('active');
+        });
+        // Close modal when clicking outside
+        window.addEventListener('click', function(e) {
+            if (e.target === loginModal) {
+                loginModal.classList.remove('active');
+            }
+            if (e.target === signupModal) {
+                signupModal.classList.remove('active');
+            }
+        });
+        // Form validation
+        document.getElementById('login-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            const email = document.getElementById('login-email').value;
+            const password = document.getElementById('login-password').value;
+
+            // Check if email matches the college email pattern
+            const emailPattern = /^160\d{2}\d{1}\d{5}@mjcollege\.ac\.in$/;
+            if (!emailPattern.test(email)) {
+                alert('Please use your official college email address in the format: 160XXXYXXXX@mjcollege.ac.in\nExample: 16042175001@mjcollege.ac.in');
+                return;
+            }
+
+            console.log("Attempting login for:", email);
+
+            // Send login request to backend
+            fetch('/login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    email: email,
+                    password: password
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    console.error("Login error:", data.error);
+                    alert(data.error);
+                } else {
+                    console.log("Login successful:", data);
+
+                    // Show success message
+                    alert(data.message);
+
+                    // Force redirect to dashboard
+                    if (data.redirect) {
+                        console.log("Redirecting to:", data.redirect);
+                        setTimeout(() => {
+                            window.location.href = data.redirect;
+                        }, 500); // Small delay to ensure the alert is seen
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred during login');
+            });
+        });
+
+        document.getElementById('signup-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const name = document.getElementById('signup-name').value;
+            const roll_number = document.getElementById('signup-roll-number').value;
+            const email = document.getElementById('signup-email').value;
+            const password = document.getElementById('signup-password').value;
+            const confirm = document.getElementById('signup-confirm').value;
+
+            // Check if email matches the college email pattern
+            const emailPattern = /^160\d{2}\d{1}\d{5}@mjcollege\.ac\.in$/;
+            if (!emailPattern.test(email)) {
+                alert('Please use your official college email address in the format: 160XXXYXXXX@mjcollege.ac.in\nExample: 16042175001@mjcollege.ac.in');
+                return;
+            }
+
+            if (password !== confirm) {
+                alert('Passwords do not match');
+                return;
+            }
+
+            // Send signup request to backend
+            fetch('/signup', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    name: name,
+                    roll_number: roll_number,
+                    email: email,
+                    password: password,
+                    confirm_password: confirm
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    alert(data.error);
+                } else {
+                    alert(data.message);
+
+                    // Check if there's a redirect URL
+                    if (data.redirect) {
+                        console.log("Redirecting to:", data.redirect);
+                        setTimeout(() => {
+                            window.location.href = data.redirect;
+                        }, 500); // Small delay to ensure the alert is seen
+                    } else {
+                        // If no redirect, just switch to login modal
+                        signupModal.classList.remove('active');
+                        loginModal.classList.add('active');
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred during signup');
+            });
+        });
+        // FAQ accordion
+        const faqQuestions = document.querySelectorAll('.faq-question');
+        faqQuestions.forEach(question => {
+            question.addEventListener('click', function() {
+                const answer = this.nextElementSibling;
+                const icon = this.querySelector('i');
+
+                // Toggle current answer
+                answer.classList.toggle('hidden');
+                icon.classList.toggle('rotate-180');
+
+                // Close other answers
+                faqQuestions.forEach(q => {
+                    if (q !== question) {
+                        q.nextElementSibling.classList.add('hidden');
+                        q.querySelector('i').classList.remove('rotate-180');
+                    }
+                });
+            });
+        });
+        // Scroll animation for steps
+        function checkStepsVisibility() {
+            const stepCards = document.querySelectorAll('.step-card');
+            stepCards.forEach(card => {
+                const cardPosition = card.getBoundingClientRect().top;
+                const screenPosition = window.innerHeight / 1.3;
+
+                if (cardPosition < screenPosition) {
+                    card.classList.add('visible');
+                }
+            });
+        }
+        window.addEventListener('scroll', checkStepsVisibility);
+        window.addEventListener('load', checkStepsVisibility);
+
+        // Chatbot functionality
+        const chatbotBtn = document.getElementById('chatbot-btn');
+        const chatbotModal = document.getElementById('chatbot-modal');
+        const closeChatbot = document.getElementById('close-chatbot');
+        const chatInput = document.getElementById('chat-input');
+        const sendChat = document.getElementById('send-chat');
+        const chatMessages = document.getElementById('chat-messages');
+
+        chatbotBtn.addEventListener('click', function() {
+            chatbotModal.classList.remove('hidden');
+            chatbotModal.classList.add('active');
+        });
+
+        closeChatbot.addEventListener('click', function() {
+            chatbotModal.classList.add('hidden');
+            chatbotModal.classList.remove('active');
+        });
+
+        function sendMessage() {
+            const message = chatInput.value.trim();
+            if (message) {
+                // Add user message
+                chatMessages.innerHTML += `
+                    <div class="mb-4 text-right">
+                        <div class="bg-[#8E7DBE] text-white rounded-lg p-3 inline-block max-w-xs">
+                            <p class="text-sm">${message}</p>
+                        </div>
+                    </div>
+                `;
+
+                chatInput.value = '';
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+
+                // Simulate bot response after a short delay
+                setTimeout(() => {
+                    const responses = [
+                        "I can help you with information about our scholarship programs.",
+                        "The application deadline is April 15th for the next academic year.",
+                        "You'll need to submit transcripts, proof of income, and recommendation letters.",
+                        "Please check the eligibility criteria on our website.",
+                        "You can track your application status through your account dashboard."
+                    ];
+                    const randomResponse = responses[Math.floor(Math.random() * responses.length)];
+
+                    chatMessages.innerHTML += `
+                        <div class="mb-4">
+                            <div class="bg-gray-100 rounded-lg p-3 inline-block max-w-xs">
+                                <p class="text-sm">${randomResponse}</p>
+                            </div>
+                        </div>
+                    `;
+                    chatMessages.scrollTop = chatMessages.scrollHeight;
+                }, 1000);
+            }
+        }
+
+        sendChat.addEventListener('click', sendMessage);
+
+        chatInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+    </script>
+
+</body>
+</html>

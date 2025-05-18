@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        softPink: '#F7CFD8',
+                        lightLime: '#F4F8D3',
+                        limeYellow: '#E9F7AA',
+                        translucentLime: 'rgba(244, 248, 211, 0.85)',
+                        aquaBlue: '#A6D6D6',
+                        lavenderPurple: '#8E7DBE',
+                    },
+                    boxShadow: {
+                        'glass': '0 4px 30px rgba(0, 0, 0, 0.1)',
+                        'glass-inset': 'inset 0 4px 30px rgba(255, 255, 255, 0.1)',
+                    },
+                    backdropBlur: {
+                        'sm': '4px',
+                        'md': '8px',
+                        'lg': '12px',
+                    },
+                    animation: {
+                        'slide-in': 'slideIn 0.3s ease-out forwards',
+                        'slide-out': 'slideOut 0.3s ease-out forwards',
+                        'float': 'float 3s ease-in-out infinite',
+                    },
+                    keyframes: {
+                        slideIn: {
+                            '0%': { transform: 'translateX(-100%)' },
+                            '100%': { transform: 'translateX(0)' },
+                        },
+                        slideOut: {
+                            '0%': { transform: 'translateX(0)' },
+                            '100%': { transform: 'translateX(-100%)' },
+                        },
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0)' },
+                            '50%': { transform: 'translateY(-6px)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap');
+        
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #e4e8f0 100%);
+            min-height: 100vh;
+        }
+        
+        /* Add hero image styling */
+        .hero-banner {
+            background-image: url('https://i.pinimg.com/736x/cc/44/f4/cc44f41fee8c129ab6e864e4fa0d66ba.jpg');
+            background-size: cover;
+            background-position: center;
+            height: 200px;
+            border-radius: 15px;
+            margin-bottom: 20px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .hero-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(to right, rgba(142, 125, 190, 0.8), rgba(166, 214, 214, 0.4));
+            display: flex;
+            align-items: center;
+            padding-left: 30px;
+        }
+        
+        .hero-text {
+            color: white;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+        
+        .glass-card {
+            background: rgba(255, 255, 255, 0.7);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            transition: all 0.3s ease;
+        }
+        
+        .glass-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+        
+        .nav-item {
+            transition: all 0.3s ease;
+        }
+        
+        .nav-item:hover {
+            background: linear-gradient(90deg, rgba(247,207,216,0.2) 0%, rgba(255,255,255,0) 100%);
+            border-left: 3px solid #F7CFD8;
+        }
+        
+        .nav-item.active {
+            background: linear-gradient(90deg, rgba(233,247,170,0.3) 0%, rgba(255,255,255,0) 100%);
+            border-left: 3px solid #E9F7AA;
+        }
+        
+        .overlay {
+            background-color: rgba(0, 0, 0, 0.2);
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
+        }
+        
+        .drawer {
+            box-shadow: -5px 0 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        select, input, textarea {
+            background: rgba(255, 255, 255, 0.7);
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+        }
+        
+        select:focus, input:focus, textarea:focus {
+            outline: none;
+            border-color: #8E7DBE;
+            box-shadow: 0 0 0 2px rgba(142, 125, 190, 0.2);
+        }
+        
+        .sidebar {
+            background-color: rgba(244, 248, 211, 0.85);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            border-right: 1px solid rgba(255, 255, 255, 0.5);
+            transition: transform 0.3s ease;
+        }
+        
+        .sidebar.collapsed {
+            transform: translateX(-100%);
+        }
+        
+        .sidebar-toggle {
+            position: fixed;
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 30;
+            background-color: rgba(244, 248, 211, 0.9);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            border-left: none;
+            border-radius: 0 8px 8px 0;
+            width: 30px;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
+        }
+        
+        .sidebar-toggle:hover {
+            background-color: rgba(233, 247, 170, 0.9);
+            width: 35px;
+        }
+        
+        @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-100%);
+                position: fixed;
+                z-index: 20;
+                height: 100vh;
+            }
+            .sidebar.active {
+                transform: translateX(0);
+            }
+            .main-content {
+                margin-left: 0 !important;
+            }
+            .sidebar-toggle {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body class="min-h-screen">
+    <!-- Sidebar Toggle Button -->
+    <div class="sidebar-toggle" id="sidebarToggle">
+        <i class="fas fa-chevron-right text-gray-700" id="toggleIcon"></i>
+    </div>
+    
+    <!-- Sidebar -->
+    <div class="sidebar fixed h-full w-64 shadow-lg z-10">
+        <div class="p-6 flex items-center space-x-3">
+            <div class="w-12 h-12 rounded-full bg-gradient-to-br from-limeYellow to-lightLime flex items-center justify-center text-gray-700 text-xl font-bold">U</div>
+            <div>
+                <h2 class="font-semibold" id="username-display">User</h2>
+                <p class="text-xs text-gray-600">Student</p>
+            </div>
+        </div>
+        
+        <nav class="mt-8">
+            <ul>
+                <li class="nav-item active mx-4 mb-2 p-3 flex items-center space-x-3 cursor-pointer">
+                    <i class="fas fa-user w-6 text-center text-gray-700"></i>
+                    <span class="text-gray-700">Profile</span>
+                </li>
+                <li class="nav-item mx-4 mb-2 p-3 flex items-center space-x-3 cursor-pointer">
+                    <i class="fas fa-bell w-6 text-center text-gray-600"></i>
+                    <span class="text-gray-700">Notifications</span>
+                    <span class="ml-auto bg-limeYellow text-gray-700 text-xs px-2 py-1 rounded-full">3</span>
+                </li>
+                <li class="nav-item mx-4 mb-2 p-3 flex items-center space-x-3 cursor-pointer">
+                    <i class="fas fa-cog w-6 text-center text-gray-600"></i>
+                    <span class="text-gray-700">Settings</span>
+                </li>
+            </ul>
+        </nav>
+        
+        <div class="absolute bottom-0 w-full p-6">
+            <button id="add-info-btn" class="w-full bg-gradient-to-r from-limeYellow to-lightLime text-gray-700 py-3 rounded-xl shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center space-x-2">
+                <i class="fas fa-plus"></i>
+                <span>Add More Info</span>
+            </button>
+        </div>
+    </div>
+    
+    <!-- Mobile Menu Button -->
+    <div class="md:hidden fixed top-4 left-4 z-30">
+        <button id="mobile-menu-btn" class="w-10 h-10 rounded-full bg-white shadow-md flex items-center justify-center">
+            <i class="fas fa-bars text-gray-700"></i>
+        </button>
+    </div>
+    
+    <!-- Main Content -->
+    <div class="main-content ml-64 p-8 transition-all duration-300 min-h-screen">
+        <!-- Header with Search -->
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 space-y-4 md:space-y-0">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-800" id="greeting">Hi! User</h1>
+                <p class="text-gray-500">Welcome to your application dashboard</p>
+            </div>
+            
+            <div class="relative w-full md:w-64">
+                <input type="text" placeholder="Search..." class="w-full pl-10 pr-4 py-2 rounded-xl border border-gray-200 focus:border-lavenderPurple focus:ring-1 focus:ring-lavenderPurple transition-all duration-200">
+                <i class="fas fa-search absolute left-3 top-3 text-gray-400"></i>
+            </div>
+        </div>
+        
+        <!-- Hero Banner with New Image -->
+        <div class="hero-banner">
+            <div class="hero-overlay">
+                <div class="hero-text">
+                    <h2 class="text-2xl font-bold mb-2">MJCET Scholarship Portal</h2>
+                    <p>Empowering your academic journey</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Dashboard Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+            <div class="glass-card rounded-2xl p-6 shadow-glass hover:animate-float cursor-pointer">
+                <div class="w-16 h-16 rounded-xl bg-softPink bg-opacity-20 flex items-center justify-center mb-4">
+                    <i class="fas fa-file-alt text-2xl text-softPink"></i>
+                </div>
+                <h3 class="font-semibold text-xl mb-2">Fresh Application</h3>
+                <p class="text-gray-500 mb-4">Start a new application for courses</p>
+                <button class="text-lavenderPurple font-medium flex items-center space-x-1">
+                    <span>Begin</span>
+                    <i class="fas fa-chevron-right text-xs"></i>
+                </button>
+            </div>
+            
+            <div class="glass-card rounded-2xl p-6 shadow-glass hover:animate-float cursor-pointer">
+                <div class="w-16 h-16 rounded-xl bg-lightLime bg-opacity-20 flex items-center justify-center mb-4">
+                    <i class="fas fa-search text-2xl text-lightLime"></i>
+                </div>
+                <h3 class="font-semibold text-xl mb-2">Check Application Status</h3>
+                <p class="text-gray-500 mb-4">View the status of your current applications</p>
+                <button class="text-lavenderPurple font-medium flex items-center space-x-1">
+                    <span>View</span>
+                    <i class="fas fa-chevron-right text-xs"></i>
+                </button>
+            </div>
+            
+            <div class="glass-card rounded-2xl p-6 shadow-glass hover:animate-float cursor-pointer">
+                <div class="w-16 h-16 rounded-xl bg-aquaBlue bg-opacity-20 flex items-center justify-center mb-4">
+                    <i class="fas fa-history text-2xl text-aquaBlue"></i>
+                </div>
+                <h3 class="font-semibold text-xl mb-2">Previous Applications</h3>
+                <p class="text-gray-500 mb-4">Review your past application history</p>
+                <button class="text-lavenderPurple font-medium flex items-center space-x-1">
+                    <span>Browse</span>
+                    <i class="fas fa-chevron-right text-xs"></i>
+                </button>
+            </div>
+        </div>
+        
+        <!-- Recent Activity Section -->
+        <div class="glass-card rounded-2xl p-6 shadow-glass">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="font-semibold text-xl">Recent Activity</h2>
+                <button class="text-sm text-lavenderPurple font-medium">See All</button>
+            </div>
+            
+            <div class="space-y-4">
+                <div class="flex items-start space-x-4">
+                    <div class="w-10 h-10 rounded-full bg-softPink bg-opacity-20 flex items-center justify-center mt-1">
+                        <i class="fas fa-check text-softPink"></i>
+                    </div>
+                    <div>
+                        <h4 class="font-medium">Application submitted</h4>
+                        <p class="text-gray-500 text-sm">Your application for Computer Science was submitted</p>
+                        <p class="text-gray-400 text-xs mt-1">2 hours ago</p>
+                    </div>
+                </div>
+                
+                <div class="flex items-start space-x-4">
+                    <div class="w-10 h-10 rounded-full bg-lightLime bg-opacity-20 flex items-center justify-center mt-1">
+                        <i class="fas fa-envelope text-lightLime"></i>
+                    </div>
+                    <div>
+                        <h4 class="font-medium">New message</h4>
+                        <p class="text-gray-500 text-sm">You have a new message from the admissions office</p>
+                        <p class="text-gray-400 text-xs mt-1">Yesterday</p>
+                    </div>
+                </div>
+                
+                <div class="flex items-start space-x-4">
+                    <div class="w-10 h-10 rounded-full bg-aquaBlue bg-opacity-20 flex items-center justify-center mt-1">
+                        <i class="fas fa-calendar-alt text-aquaBlue"></i>
+                    </div>
+                    <div>
+                        <h4 class="font-medium">Deadline reminder</h4>
+                        <p class="text-gray-500 text-sm">Application deadline approaching in 3 days</p>
+                        <p class="text-gray-400 text-xs mt-1">2 days ago</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Drawer Overlay -->
+    <div id="overlay" class="overlay fixed inset-0 z-20 hidden opacity-0 transition-opacity duration-300"></div>
+    
+    <!-- Info Drawer -->
+    <div id="info-drawer" class="drawer fixed top-0 right-0 h-full w-80 bg-white z-30 transform translate-x-full transition-transform duration-300 p-6">
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-xl font-semibold">Add Information</h2>
+            <button id="close-drawer" class="w-8 h-8 rounded-full flex items-center justify-center hover:bg-gray-100 transition-colors duration-200">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        
+        <form id="info-form" class="space-y-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Year</label>
+                <select class="w-full p-3 rounded-xl border focus:ring-2 focus:ring-lavenderPurple focus:border-transparent transition-all duration-200">
+                    <option value="">Select Year</option>
+                    <option value="1">1st Year</option>
+                    <option value="2">2nd Year</option>
+                    <option value="3">3rd Year</option>
+                    <option value="4">4th Year</option>
+                </select>
+            </div>
+            
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Branch</label>
+                <select class="w-full p-3 rounded-xl border focus:ring-2 focus:ring-lavenderPurple focus:border-transparent transition-all duration-200">
+                    <option value="">Select Branch</option>
+                    <option value="CSE">Computer Science</option>
+                    <option value="IT">Information Technology</option>
+                    <option value="EEE">Electrical Engineering</option>
+                    <option value="AI">Artificial Intelligence</option>
+                    <option value="MECH">Mechanical Engineering</option>
+                </select>
+            </div>
+            
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Additional Notes</label>
+                <textarea class="w-full p-3 rounded-xl border focus:ring-2 focus:ring-lavenderPurple focus:border-transparent transition-all duration-200" rows="3" placeholder="Any additional information..."></textarea>
+            </div>
+            
+            <button type="submit" class="w-full bg-gradient-to-r from-lavenderPurple to-aquaBlue text-white py-3 rounded-xl shadow-md hover:shadow-lg transition-all duration-200 mt-6">
+                Save Information
+            </button>
+        </form>
+    </div>
+    
+    <script>
+        // Fetch user data from the server
+        document.addEventListener('DOMContentLoaded', function() {
+            fetch('/api/user')
+                .then(response => {
+                    if (!response.ok) {
+                        // If not logged in, redirect to home page
+                        window.location.href = '/';
+                        throw new Error('Not logged in');
+                    }
+                    return response.json();
+                })
+                .then(userData => {
+                    // Update the UI with the user's name
+                    document.getElementById('username-display').textContent = userData.name;
+                    document.getElementById('greeting').textContent = `Hi! ${userData.name}`;
+                    
+                    // Mobile menu toggle
+                    const mobileMenuBtn = document.getElementById('mobile-menu-btn');
+                    const sidebar = document.querySelector('.sidebar');
+                    
+                    if (mobileMenuBtn) {
+                        mobileMenuBtn.addEventListener('click', function() {
+                            sidebar.classList.toggle('active');
+                        });
+                    }
+                    
+                    // Sidebar item active state
+                    const navItems = document.querySelectorAll('.nav-item');
+                    navItems.forEach(item => {
+                        item.addEventListener('click', function() {
+                            navItems.forEach(i => i.classList.remove('active'));
+                            this.classList.add('active');
+                        });
+                    });
+                    
+                    // Add logout functionality
+                    const logoutBtn = document.createElement('li');
+                    logoutBtn.className = 'nav-item mx-3 mb-2 p-2 flex items-center space-x-3 cursor-pointer rounded-lg';
+                    logoutBtn.innerHTML = `
+                        <i class="fas fa-sign-out-alt w-5 text-center text-gray-600"></i>
+                        <span class="text-gray-700">Logout</span>
+                    `;
+                    document.querySelector('.sidebar nav ul').appendChild(logoutBtn);
+                    
+                    logoutBtn.addEventListener('click', function() {
+                        window.location.href = '/logout';
+                    });
+                    
+                    // Initialize sidebar toggle
+                    const sidebarToggle = document.getElementById('sidebarToggle');
+                    const toggleIcon = document.getElementById('toggleIcon');
+                    const mainContent = document.querySelector('.main-content');
+                    
+                    if (sidebarToggle) {
+                        sidebarToggle.addEventListener('click', function() {
+                            sidebar.classList.toggle('collapsed');
+                            
+                            if (sidebar.classList.contains('collapsed')) {
+                                mainContent.style.marginLeft = '0';
+                                toggleIcon.classList.remove('fa-chevron-right');
+                                toggleIcon.classList.add('fa-chevron-left');
+                                sidebarToggle.style.left = '0';
+                            } else {
+                                mainContent.style.marginLeft = '220px';
+                                toggleIcon.classList.remove('fa-chevron-left');
+                                toggleIcon.classList.add('fa-chevron-right');
+                                sidebarToggle.style.left = '220px';
+                            }
+                        });
+                    }
+                    
+                    // Make sure the toggle button is in the right position on page load
+                    if (sidebar.classList.contains('collapsed')) {
+                        mainContent.style.marginLeft = '0';
+                        toggleIcon.classList.remove('fa-chevron-right');
+                        toggleIcon.classList.add('fa-chevron-left');
+                        sidebarToggle.style.left = '0';
+                    } else {
+                        mainContent.style.marginLeft = '220px';
+                        toggleIcon.classList.remove('fa-chevron-left');
+                        toggleIcon.classList.add('fa-chevron-right');
+                        sidebarToggle.style.left = '220px';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching user data:', error);
+                });
+        });
+
+        // Drawer functionality
+        const addInfoBtn = document.getElementById('add-info-btn');
+        const closeDrawerBtn = document.getElementById('close-drawer');
+        const overlay = document.getElementById('overlay');
+        const infoDrawer = document.getElementById('info-drawer');
+        const infoForm = document.getElementById('info-form');
+        
+        addInfoBtn.addEventListener('click', function() {
+            overlay.classList.remove('hidden');
+            setTimeout(() => {
+                overlay.style.opacity = '1';
+            }, 10);
+            infoDrawer.classList.remove('translate-x-full');
+        });
+        
+        closeDrawerBtn.addEventListener('click', closeDrawer);
+        overlay.addEventListener('click', closeDrawer);
+        
+        function closeDrawer() {
+            overlay.style.opacity = '0';
+            setTimeout(() => {
+                overlay.classList.add('hidden');
+            }, 300);
+            infoDrawer.classList.add('translate-x-full');
+        }
+        
+        // Form submission
+        infoForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const year = this.querySelector('select:nth-of-type(1)').value;
+            const branch = this.querySelector('select:nth-of-type(2)').value;
+            const notes = this.querySelector('textarea').value;
+            
+            console.log('Submitted info:', { year, branch, notes });
+            
+            // In a real app, you would send this to your backend
+            // fetch('/api/user/info', {
+            //     method: 'POST',
+            //     body: JSON.stringify({ year, branch, notes }),
+            //     headers: {
+            //         'Content-Type': 'application/json'
+            //     }
+            // })
+            
+            // Show a success message
+            alert('Information saved successfully!');
+            closeDrawer();
+        });
+        
+        // Card click handlers
+        const cards = document.querySelectorAll('.glass-card');
+        cards.forEach((card, index) => {
+            card.addEventListener('click', function() {
+                const actions = ['Start new application', 'Check status', 'View history'];
+                alert(`Action: ${actions[index]}`);
+            });
+        });
+    </script>
+</body>
+</html>
