@@ -16,22 +16,20 @@ class Student(db.Model):
 
 class Admin(db.Model):
     user_id = db.Column(db.String(80), primary_key=True)
-    username = db.Column(db.String(80), nullable=False)
     password = db.Column(db.String(80), unique=True, nullable=False)
 
     def __repr__(self) -> str:
-        return f"Admin('{self.username}', '{self.email}')"
+        return f"Admin('{self.username}')"
 
 class Teacher(db.Model):
     user_id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     username = db.Column(db.String(80), nullable=False)
     password = db.Column(db.String(80), unique=True, nullable=False)
-    email = db.Column(db.String(120), unique=True, nullable=False)
     time_table = db.Column(db.LargeBinary)  
     time_table_filename = db.Column(db.String(255)) 
 
     def __repr__(self) -> str:
-        return f"Teacher('{self.username}', '{self.email}')"
+        return f"Teacher('{self.username}')"
 
 class TeacherUnavailability(db.Model):
     user_id = db.Column(db.Integer,primary_key = True, nullable=False, autoincrement=True)

@@ -26,15 +26,39 @@ document.addEventListener('DOMContentLoaded', function() {
     const form = document.querySelector('form');
     form.addEventListener('submit', function(e) {
         e.preventDefault();
-        const teacherId = document.getElementById('teacherId').value;
+        const username = document.getElementById('username').value; 
         const password = document.getElementById('password').value;
         
-        if (!teacherId || !password) {
+        if (!username || !password) {
             alert('Please fill in all fields');
             return;
         }
         
         // Here you would typically send the data to a server
-        alert('Login successful! (This is a demo)');
+        // Send login request to server
+        fetch('/faculty_login', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                username: username,
+                password: password
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                alert(data.error);
+            } else {
+                alert(data.message || 'Login successful!');
+                // Redirect to teacher dashboard
+                window.location.href = '/faculty_dashboard';
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('An error occurred during login');
+        });
     });
 });

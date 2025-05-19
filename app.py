@@ -262,11 +262,13 @@ def verify_student_otp():
         db.session.rollback()
         return jsonify({'error': f'Account creation failed: {str(e)}'}), 500
 
-# admin
-@app.route('/admin_signup', methods=['POST'])
-def admin_signup():
+# admin login
+@app.route('/admin_login', methods=['GET', 'POST'])
+def admin_login():
+    if request.method == 'GET':
+        return render_template('admin_login.html')
+
     data = request.json
-    username = data.get('username') 
     user_id = data.get('user_id')
     password = data.get('password')
 
@@ -276,98 +278,66 @@ def admin_signup():
     if not admin:
         return jsonify({'error': 'Invalid admin ID'}), 400
         
-    if not check_password_hash(admin.password, password):
+    if admin.password != password:
         return jsonify({"error": "Invalid password"}), 401
 
     # 3. Create admin session
     session['admin_id'] = admin.user_id
-    session['admin_username'] = username
+    session['admin_username'] = admin.user_id
     
     return jsonify({
         "message": "Login successful",
-        "username": username
+        "username": admin.user_id
     }), 200
 
-#teacher signup
-@app.route('/teacher_signup', methods=['POST'])
-def teacher_signup():
+# faculty login
+@app.route('/faculty_login', methods=['GET', 'POST'])
+def faculty_login():
+    if request.method == 'GET':
+        return render_template('faculty_login.html')
+    
     data = request.json
-    username = data.get('username') 
-    user_id = data.get('user_id')
+    username = data.get('username')
     password = data.get('password')
+    print (f"idarrr {password}")
 
     #Find admin by user_id
-    teacher = Teacher.query.filter_by(user_id=user_id).first()
+    teacher = Teacher.query.filter_by(username=username).first()
+    print(teacher)
 
     if not teacher:
         return jsonify({'error': 'Invalid admin ID'}), 400
         
-    if not check_password_hash(teacher.password, password):
+    if teacher.password != password:
         return jsonify({"error": "Invalid password"}), 401
 
     # 3. Create admin session
     session['teacher_id'] = teacher.user_id
-    session['teacher_username'] = username
+    session['teacher_username'] = teacher.username
     
     return jsonify({
         "message": "Login successful",
-        "username": username
+        "username": username,
     }), 200
 
+# faculty dashboard route
+@app.route('/faculty_dashboard')
+def faculty_dashboard():
+    if 'teacher_id' not in session:
+        return redirect(url_for('index'))
 
-"""
-@app.route('/teacher_signup', methods=['POST'])
-def teacher_signup():
-    data = request.json
-    name = data.get('name') 
-    email = data.get('email')
-    password = data.get('password')
+    return render_template('faculty_dashboard.html', username=session.get('username'))
 
-    # Validate email format using our custom validator
-    if not validate_college_email(email):
-        return jsonify({
-            'error': 'Please use your official college email address in the format: 160XXXYXXXX@mjcollege.ac.in\nExample: 16042175001@mjcollege.ac.in'
-        }), 400
+#admin dashboard route
+@app.route('/admin_dashboard')
+def admin_dashboard():
+    if 'admin_id' not in session:
+        return redirect(url_for('index'))
 
-    # Check if passwords match (if confirm password is sent)
-    if 'confirm_password' in data and data['confirm_password'] != password:
-        return jsonify({'error': 'Passwords do not match'}), 400
+    return render_template('admin_dashboard.html', username=session.get('username'))
 
-    # Check if email already exists
-    existing_teacher = Teacher.query.filter_by(email=email).first()
-    if existing_teacher:
-        return jsonify({'error': 'Email already registered'}), 400
 
-    # Hash the password
-    password_hash = generate_password_hash(password)
-
-    # Create new teacher
-    new_teacher = Teacher(
-        username=name,
-        email=email,
-        password=password_hash,
-    )
-
-    # Insert user into database
-    try:
-        db.session.add(new_teacher)
-        db.session.commit()
-
-        # Set up a session for the newly registered teacher user
-        session['user_id'] = new_teacher.user_id
-        session['user_type'] = 'teacher'
-        session['username'] = new_teacher.username
-
-        return jsonify({
-            'message': 'Registration successful! You can now login.',
-            'redirect': '/teacher_dashboard'
-        }), 201
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({'error': f'Registration failed: {str(e)}'}), 500
-"""
-
-#Login Routes for Student, Teacher, and Admin
+#Login Routes for Student
 @app.route('/login', methods=['POST', 'GET'])
 def login():
     data = request.json
@@ -398,69 +368,6 @@ def login():
         'message': 'Login successful!',
         'redirect': '/student_dashboard'
     })
-"""
-@app.route('/teacher_login', methods=['POST', 'GET'])
-def teacher_login():
-    data = request.json
-    email = data.get('email')
-    password = data.get('password')
-
-    # Validate email format
-    if not validate_college_email(email):
-        return jsonify({
-            'error': 'Please use your official college email address in the format: 160XXXYXXXX@mjcollege.ac.in\nExample: 16042175001@mjcollege.ac.in'
-        }), 400
-
-    # Check if user exists
-    teacher = Teacher.query.filter_by(email=email).first()
-    if not teacher:
-        return jsonify({'error': 'Invalid email or password'}), 401
-
-    # Verify password
-    if not check_password_hash(teacher.password, password):
-        return jsonify({'error': 'Invalid email or password'}), 401
-
-    # Set up session
-    session['user_id'] = teacher.user_id
-    session['user_type'] = 'teacher'
-    session['username'] = teacher.username
-
-    return jsonify({
-        'message': 'Login successful!',
-        'redirect': '/teacher_dashboard'
-    })
-
-@app.route('/admin_login', methods=['POST', 'GET'])
-def admin_login():
-    data = request.json
-    email = data.get('email')
-    password = data.get('password')
-
-    # Validate email format
-    if not validate_college_email(email):
-        return jsonify({
-            'error': 'Please use your official college email address in the format: 160XXXYXXXX@mjcollege.ac.in\nExample: 16042175001@mjcollege.ac.in'
-        }), 400
-
-    # Check if user exists
-    admin = Admin.query.filter_by(email=email).first()
-    if not admin:
-        return jsonify({'error': 'Invalid email or password'}), 401
-
-    # Verify password
-    if not check_password_hash(admin.password, password):
-        return jsonify({'error': 'Invalid email or password'}), 401
-
-    # Set up session
-    session['user_id'] = admin.user_id
-    session['user_type'] = 'admin'
-    session['username'] = admin.username
-
-    return jsonify({
-        'message': 'Login successful!',
-        'redirect': '/admin_dashboard'
-    })
-"""
 
 # student dashboard route
 @app.route('/student_dashboard')
@@ -491,14 +398,8 @@ def student_dashboard():
     # Fallback
     return redirect(url_for('index'))
 
-@app.route('/admin_login')
-def admin_login():
-    return render_template('admin_login.html')
 
-@app.route('/teacher_login')
-def teacher_login():
-    return render_template('teacher_login.html')
-
+# ye idk
 @app.route('/api/user')
 def get_user_data():
     # Check if user is logged in
@@ -523,7 +424,6 @@ def get_user_data():
         'name': session.get('username', 'User'),
         'user_type': session.get('user_type', 'unknown')
     })
-
 
 # Time table insertion
 @app.route('/upload_timetable', methods=['POST'])
@@ -556,11 +456,8 @@ def upload_timetable():
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': f'Upload failed: {str(e)}'}), 500
-    
-    return jsonify({'error': 'File type not allowed'}), 400
 
-        
-
+# logout     
 @app.route('/logout')
 def logout():
     # Clear the session
