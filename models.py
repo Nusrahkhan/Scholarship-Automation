@@ -9,15 +9,14 @@ class Student(db.Model):
     email = db.Column(db.String(120), unique=True, nullable=False)
     password = db.Column(db.String(80), unique=True, nullable=False)
     roll_number = db.Column(db.String(80), unique=True, nullable=False)
-    date_created = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    is_verified = db.Column(db.Boolean, default=False)
 
     def __repr__(self) -> str:
         return f"Student('{self.username}', '{self.email}')"
 
 class Admin(db.Model):
-    user_id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    user_id = db.Column(db.String(80), primary_key=True)
     username = db.Column(db.String(80), nullable=False)
-    email = db.Column(db.String(120), unique=True, nullable=False)
     password = db.Column(db.String(80), unique=True, nullable=False)
 
     def __repr__(self) -> str:
@@ -28,7 +27,8 @@ class Teacher(db.Model):
     username = db.Column(db.String(80), nullable=False)
     password = db.Column(db.String(80), unique=True, nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
-    time_table = db.Column(db.Text)
+    time_table = db.Column(db.LargeBinary)  
+    time_table_filename = db.Column(db.String(255)) 
 
     def __repr__(self) -> str:
         return f"Teacher('{self.username}', '{self.email}')"
@@ -48,3 +48,12 @@ class ScholarshipApplication(db.Model):
 
     def __repr__(self) -> str:
         return f"ScholarshipApplication('{self.roll_number}', '{self.scholarship_state}')"
+    
+class OTP(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    email = db.Column(db.String(120), nullable=False)
+    otp = db.Column(db.String(16), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    expires_at = db.Column(db.DateTime, nullable=False)
+    is_used = db.Column(db.Boolean, default=False)
+

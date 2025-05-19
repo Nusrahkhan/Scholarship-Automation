@@ -11,3 +11,11 @@ def validate_college_email(email):
     if not re.match(pattern, email):
         return False
     return True
+
+
+# Allowed file types
+def allowed_file(filename):
+    ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'pdf'}
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
