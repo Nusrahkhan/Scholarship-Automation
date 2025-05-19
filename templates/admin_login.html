@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Login</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/static/css/admin_login.css">
+</head>
+<body class="flex items-center justify-center p-4">
+    <!-- Background bubbles -->
+    <div class="bubble w-64 h-64 -left-32 -top-32 animate-float" style="animation: float 8s ease-in-out infinite;"></div>
+    <div class="bubble w-80 h-80 -right-40 bottom-20 animate-float" style="animation: float 10s ease-in-out infinite 2s;"></div>
+    <div class="bubble w-40 h-40 left-1/4 top-1/2 animate-float" style="animation: float 7s ease-in-out infinite 1s;"></div>
+    <div class="bubble w-60 h-60 right-1/4 top-1/3 animate-float" style="animation: float 9s ease-in-out infinite 1.5s;"></div>
+    
+    <!-- Login Card -->
+    <div class="glass-card w-full max-w-md p-8 space-y-6">
+        <div class="text-center">
+            <div class="flex items-center justify-center space-x-3">
+                <i class="fas fa-user-shield text-4xl text-[#8E7DBE]"></i>
+                <h1 class="text-3xl font-semibold text-gray-800">Admin Login</h1>
+            </div>
+            <p class="mt-2 text-gray-600">Enter your credentials to access the admin panel</p>
+        </div>
+        
+        <form class="space-y-6">
+            <div class="space-y-2">
+                <label for="adminId" class="block text-sm font-medium text-gray-700">Admin ID</label>
+                <div class="relative">
+                    <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                        <i class="fas fa-user text-gray-400"></i>
+                    </div>
+                    <input type="text" id="adminId" 
+                           class="input-field w-full pl-10 pr-4 py-3 rounded-lg focus:outline-none" 
+                           placeholder="Enter your admin ID">
+                </div>
+            </div>
+            
+            <div class="space-y-2">
+                <label for="password" class="block text-sm font-medium text-gray-700">Password</label>
+                <div class="relative">
+                    <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                        <i class="fas fa-lock text-gray-400"></i>
+                    </div>
+                    <input type="password" id="password" 
+                           class="input-field w-full pl-10 pr-4 py-3 rounded-lg focus:outline-none" 
+                           placeholder="Enter your password">
+                </div>
+            </div>
+            
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <input id="remember-me" name="remember-me" type="checkbox" 
+                           class="h-4 w-4 text-[#8E7DBE] focus:ring-[#8E7DBE] border-gray-300 rounded">
+                    <label for="remember-me" class="ml-2 block text-sm text-gray-700">Remember me</label>
+                </div>
+                
+                <div class="text-sm">
+                    <a href="#" class="font-medium text-[#8E7DBE] hover:text-[#6e5d9e]">Forgot password?</a>
+                </div>
+            </div>
+            
+            <button type="submit" class="login-btn w-full py-3 px-4 rounded-lg text-white font-semibold focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#8E7DBE]">
+                Login
+            </button>
+        </form>
+        
+        <div class="text-center text-sm text-gray-600">
+            Need help? <a href="#" class="font-medium text-[#8E7DBE] hover:text-[#6e5d9e]">Contact support</a>
+        </div>
+    </div>
+
+    <script src="/static/js/admin_login.js"></script>
+</body>
+</html>
