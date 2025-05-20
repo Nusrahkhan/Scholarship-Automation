@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verify Email - MJCET Scholarship Portal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .otp-input:focus {
+            outline: none;
+            border-color: #8E7DBE;
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div class="min-h-screen flex items-center justify-center px-4">
+        <div class="bg-white rounded-xl p-8 max-w-md w-full shadow-lg">
+            <h2 class="text-2xl font-bold mb-6 text-center text-gray-800">Verify Your Email</h2>
+            <p class="text-gray-600 text-center mb-8">We've sent a verification code to your email address</p>
+            
+            <form id="otpForm" class="space-y-6">
+                <div class="flex justify-center space-x-4 mb-8">
+                    <input type="text" maxlength="1" class="w-12 h-12 text-center text-2xl border-2 border-gray-300 rounded-lg otp-input" required>
+                    <input type="text" maxlength="1" class="w-12 h-12 text-center text-2xl border-2 border-gray-300 rounded-lg otp-input" required>
+                    <input type="text" maxlength="1" class="w-12 h-12 text-center text-2xl border-2 border-gray-300 rounded-lg otp-input" required>
+                    <input type="text" maxlength="1" class="w-12 h-12 text-center text-2xl border-2 border-gray-300 rounded-lg otp-input" required>
+                    <input type="text" maxlength="1" class="w-12 h-12 text-center text-2xl border-2 border-gray-300 rounded-lg otp-input" required>
+                    <input type="text" maxlength="1" class="w-12 h-12 text-center text-2xl border-2 border-gray-300 rounded-lg otp-input" required>
+                </div>
+
+                <button type="submit" class="w-full bg-[#8E7DBE] text-white py-3 rounded-lg font-semibold hover:bg-opacity-90 transition">
+                    Verify OTP
+                </button>
+            </form>
+            </div>
+        </div>
+    </div>
+
+        <script>
+        // Handle OTP input fields
+        const otpInputs = document.querySelectorAll('.otp-input');
+        otpInputs.forEach((input, index) => {
+            input.addEventListener('input', (e) => {
+                if (e.target.value && index < otpInputs.length - 1) {
+                    otpInputs[index + 1].focus();
+                }
+            });
+
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Backspace' && !e.target.value && index > 0) {
+                    otpInputs[index - 1].focus();
+                }
+            });
+        });
+
+        
+        // Handle form submission
+        document.getElementById('otpForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const otp = Array.from(otpInputs).map(input => input.value).join('');
+            
+            fetch('/verify-otp', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ otp: otp })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.redirect) {
+                    window.location.href = data.redirect;
+                } else if (data.error) {
+                    alert(data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error verifying OTP');
+            });
+        });
+    </script>
+</body>
+</html>

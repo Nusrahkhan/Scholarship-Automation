@@ -424,6 +424,27 @@
             </div>
         </div>
     </div>
+    <div class="modal fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" id="otp-modal">
+        <div class="bg-white rounded-xl p-8 max-w-md w-full mx-4 relative">
+            <h2 class="heading-font text-2xl font-bold mb-6 text-center">Verify Your Email</h2>
+            <p class="text-gray-600 text-center mb-8">We've sent a verification code to your email address</p>
+            
+            <div class="flex justify-center space-x-4 mb-8">
+                <input type="text" maxlength="1" class="w-12 h-12 text-center text-2xl border-2 border-gray-300 rounded-lg focus:border-[#8E7DBE] focus:outline-none otp-input" />
+                <input type="text" maxlength="1" class="w-12 h-12 text-center text-2xl border-2 border-gray-300 rounded-lg focus:border-[#8E7DBE] focus:outline-none otp-input" />
+                <input type="text" maxlength="1" class="w-12 h-12 text-center text-2xl border-2 border-gray-300 rounded-lg focus:border-[#8E7DBE] focus:outline-none otp-input" />
+                <input type="text" maxlength="1" class="w-12 h-12 text-center text-2xl border-2 border-gray-300 rounded-lg focus:border-[#8E7DBE] focus:outline-none otp-input" />
+            </div>
+
+            <button id="verify-otp" class="btn-primary w-full py-3 rounded-full text-white font-semibold mb-4">
+                Verify OTP
+            </button>
+            
+            <div class="text-center">
+                <button id="resend-otp" class="text-[#8E7DBE] hover:underline">Resend OTP</button>
+            </div>
+        </div>
+    </div>
 
     <script>
         // Navbar scroll effect
@@ -504,7 +525,7 @@
             const password = document.getElementById('login-password').value;
 
             // Check if email matches the college email pattern
-            const emailPattern = /^160\d{2}\d{1}\d{5}@mjcollege\.ac\.in$/;
+            const emailPattern = /^16042\d{1}7\d{5}@mjcollege\.ac\.in$/;
             if (!emailPattern.test(email)) {
                 alert('Please use your official college email address in the format: 160XXXYXXXX@mjcollege.ac.in\nExample: 16042175001@mjcollege.ac.in');
                 return;
@@ -549,6 +570,7 @@
             });
         });
 
+        // Replace the existing signup form event listener with this updated version
         document.getElementById('signup-form').addEventListener('submit', function(e) {
             e.preventDefault();
             const name = document.getElementById('signup-name').value;
@@ -557,10 +579,10 @@
             const password = document.getElementById('signup-password').value;
             const confirm = document.getElementById('signup-confirm').value;
 
-            // Check if email matches the college email pattern
+            // Email validation
             const emailPattern = /^16042\d{1}7\d{5}@mjcollege\.ac\.in$/;
             if (!emailPattern.test(email)) {
-                alert('Please use your official college email address in the format: 160XXXYXXXX@mjcollege.ac.in\nExample: 16042175001@mjcollege.ac.in');
+                alert('Please use your official college email address');
                 return;
             }
 
@@ -569,7 +591,7 @@
                 return;
             }
 
-            // Send signup request to backend
+            // Send signup request
             fetch('/signup', {
                 method: 'POST',
                 headers: {
@@ -579,8 +601,7 @@
                     name: name,
                     roll_number: roll_number,
                     email: email,
-                    password: password,
-                    confirm_password: confirm
+                    password: password
                 })
             })
             .then(response => response.json())
@@ -588,19 +609,10 @@
                 if (data.error) {
                     alert(data.error);
                 } else {
-                    alert(data.message);
-
-                    // Check if there's a redirect URL
-                    if (data.redirect) {
-                        console.log("Redirecting to:", data.redirect);
-                        setTimeout(() => {
-                            window.location.href = data.redirect;
-                        }, 500); // Small delay to ensure the alert is seen
-                    } else {
-                        // If no redirect, just switch to login modal
-                        signupModal.classList.remove('active');
-                        loginModal.classList.add('active');
-                    }
+                    // Store email in session storage for verification page
+                    sessionStorage.setItem('verificationEmail', email);
+                    // Redirect to verify.html
+                    window.location.href = '/verify';
                 }
             })
             .catch(error => {
@@ -608,6 +620,12 @@
                 alert('An error occurred during signup');
             });
         });
+
+
+
+       
+
+
         // FAQ accordion
         const faqQuestions = document.querySelectorAll('.faq-question');
         faqQuestions.forEach(question => {

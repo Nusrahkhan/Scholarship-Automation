@@ -7,9 +7,16 @@ import sqlite3
 import pyotp
 from datetime import datetime, timedelta
 from flask_mail import Mail, Message
+import json
+import random
+
 
 
 app = Flask(__name__)
+
+with open('config.json', 'r') as f:
+    params = json.load(f)['params']
+
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///scholarship.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SECRET_KEY'] = 'your_secret_key_here'  # Change this in production
@@ -17,8 +24,8 @@ app.config['SECRET_KEY'] = 'your_secret_key_here'  # Change this in production
 app.config['MAIL_SERVER'] = 'smtp.gmail.com'
 app.config['MAIL_PORT'] = 587
 app.config['MAIL_USE_TLS'] = True
-app.config['MAIL_USERNAME'] = 'your_email@gmail.com'
-app.config['MAIL_PASSWORD'] = 'your_app_password'  # Use App Password for Gmail
+app.config['MAIL_USERNAME'] = params['gmail-user']
+app.config['MAIL_PASSWORD'] = params['gmail-password']  # Use App Password for Gmail
 mail = Mail(app)
 
 
@@ -28,8 +35,12 @@ db.init_app(app)
 # Home Page
 @app.route('/')
 def index():
-    if 'user_id' in session:
-        return redirect(url_for('dashboard'))
+    if 'user_id' in session and session.get('user_type') == 'student':
+        return redirect('/student_dashboard')
+    elif 'admin_id' in session and session.get('user_type') == 'admin':
+        return redirect('/admin_dashboard')
+    elif 'teacher_id' in session and session.get('user_type') == 'teacher':
+        return redirect('/faculty_dashboard')
     return render_template('index.html')
 
 # Signup Routes for Student, Teacher, and Admin
@@ -43,7 +54,7 @@ def get_db():
 
 # Generate and store OTP (valid for 5 mins)
 def generate_and_send_otp(email):
-    otp = pyotp.random_base32(length=6)  # 6-digit OTP
+    otp = ''.join([str(random.randint(0, 9)) for _ in range(6)])
     expires_at = datetime.now() + timedelta(minutes=5)
     
     # Store OTP in database
@@ -63,7 +74,10 @@ def generate_and_send_otp(email):
     )
     msg.body = f'Your OTP is: {otp} (valid for 5 minutes)'
     mail.send(msg)
-    return otp
+    return jsonify({
+        'message': 'OTP sent to your email',
+        'next_step': '/verify-otp'
+    }), 200
 
 # Verify OTP
 def verify_otp(email, user_otp):
@@ -178,7 +192,7 @@ def student_signup():
 
     # Generate and send OTP
     try:
-        otp = pyotp.random_base32(length=6)
+        otp = ''.join([str(random.randint(0, 9)) for _ in range(6)])
         expires_at = datetime.now() + timedelta(minutes=5)
         
         # Store OTP in database
@@ -193,7 +207,7 @@ def student_signup():
         # Send OTP via email
         msg = Message(
             'Your Student Signup OTP',
-            sender='noreply@mjcollege.ac.in',
+            sender=app.config['MAIL_USERNAME'],
             recipients=[email]
         )
         msg.body = f'Your OTP is: {otp}\nValid for 5 minutes.'
@@ -201,15 +215,15 @@ def student_signup():
 
         return jsonify({
             'message': 'OTP sent to your college email',
-            'next_step': '/student/verify-otp'
+            'next_step': 'verify-otp'
         }), 200
 
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': f'Failed to send OTP: {str(e)}'}), 500
 
-@app.route('/student_verify-otp', methods=['POST'])
-def verify_student_otp():
+@app.route('/verify-otp', methods=['POST'])
+def verify_otp():
     data = request.json
     user_otp = data.get('otp')
     
@@ -263,6 +277,11 @@ def verify_student_otp():
         return jsonify({'error': f'Account creation failed: {str(e)}'}), 500
 
 
+@app.route('/verify')
+def verify_page():
+    if 'temp_signup' not in session:
+        return redirect(url_for('index'))
+    return render_template('verify.html')
 
 # faculty and admin logins based on password given already
 # admin login
@@ -286,6 +305,7 @@ def admin_login():
 
     # 3. Create admin session
     session['admin_id'] = admin.user_id
+    session['user_type'] = 'admin'
     session['admin_username'] = admin.user_id
     
     return jsonify({
@@ -316,6 +336,7 @@ def faculty_login():
 
     # 3. Create admin session
     session['teacher_id'] = teacher.user_id
+    session['user_type'] = 'teacher'
     session['teacher_username'] = teacher.username
     
     return jsonify({
@@ -352,7 +373,7 @@ def student_dashboard():
         return redirect(url_for('index'))
 
     # Render the student dashboard
-    return render_template('student_dasboard.html', username=session.get('username', 'Student'))
+    return render_template('student_dashboard.html', username=session.get('username', 'Student'))
 
 
 
