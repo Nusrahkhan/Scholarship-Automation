@@ -4,7 +4,24 @@
     
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Faculty Dashboard</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="./try-two_files/saved_resource"></script><style id="yt-extension-style">.ad-container,
+  .ad-div,
+  .masthead-ad-control,
+ .video-ads,
+ .ytp-ad-progress-list,
+  #ad_creative_3,
+ #footer-ads,
+  #masthead-ad,
+ #player-ads,
+  .ytd-mealbar-promo-renderer,
+  #watch-channel-brand-div,
+ #watch7-sidebar-ads,
+  ytd-display-ad-renderer,
+  ytd-compact-promoted-item-renderer,
+ .html5-video-player.ad-showing video {
+    display: none !important;
+ }</style>
+    <link rel="stylesheet" href="./try-two_files/all.min.css">
     <style>
         /* Hero section */
         .hero {
@@ -364,38 +381,6 @@
                 currentDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1);
                 generateCalendar(currentDate);
             });
-
-            // Add the save unavailability event listener here
-            document.getElementById('saveUnavailability').addEventListener('click', function() {
-                // Collect unavailable dates
-                const unavailableDates = [];
-                const yearMonth = currentMonthDisplay.textContent; // e.g., "January 2025"
-                const [monthName, year] = yearMonth.split(' ');
-                const month = monthNames.indexOf(monthName);
-
-                document.querySelectorAll('.calendar-day.unavailable').forEach(dayElem => {
-                    const day = parseInt(dayElem.textContent);
-                    // Format as YYYY-MM-DD
-                    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-                    unavailableDates.push(dateStr);
-                });
-
-                // Send to backend
-                fetch('/save_unavailability', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ dates: unavailableDates })
-                })
-                .then(res => res.json())
-                .then(data => {
-                    if (data.success) {
-                        alert('Unavailability saved!');
-                    } else {
-                        alert(data.error || 'Failed to save');
-                    }
-                })
-                .catch(() => alert('Error saving unavailability'));
-            });
             
             // Mobile menu toggle
             const mobileMenuBtn = document.querySelector('.md\\:hidden');
@@ -551,8 +536,76 @@
             }
         });
 
+        document.getElementById('saveUnavailability').addEventListener('click', function() {
+            // Collect unavailable dates
+            const unavailableDates = [];
+            const yearMonth = currentMonthDisplay.textContent; // e.g., "January 2025"
+            const [monthName, year] = yearMonth.split(' ');
+            const month = monthNames.indexOf(monthName);
+
+            document.querySelectorAll('.calendar-day.unavailable').forEach(dayElem => {
+                const day = parseInt(dayElem.textContent);
+                // Format as YYYY-MM-DD
+                const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                unavailableDates.push(dateStr);
+            });
+
+            // Send to backend
+            fetch('/save_unavailability', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ dates: unavailableDates })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Unavailability saved!');
+                } else {
+                    alert(data.error || 'Failed to save');
+                }
+            })
+            .catch(() => alert('Error saving unavailability'));
+        });
 
     </script>
+<!-- Code injected by live-server -->
+<script>
+	// <![CDATA[  <-- For SVG support
+	if ('WebSocket' in window) {
+		(function () {
+			function refreshCSS() {
+				var sheets = [].slice.call(document.getElementsByTagName("link"));
+				var head = document.getElementsByTagName("head")[0];
+				for (var i = 0; i < sheets.length; ++i) {
+					var elem = sheets[i];
+					var parent = elem.parentElement || head;
+					parent.removeChild(elem);
+					var rel = elem.rel;
+					if (elem.href && typeof rel != "string" || rel.length == 0 || rel.toLowerCase() == "stylesheet") {
+						var url = elem.href.replace(/(&|\?)_cacheOverride=\d+/, '');
+						elem.href = url + (url.indexOf('?') >= 0 ? '&' : '?') + '_cacheOverride=' + (new Date().valueOf());
+					}
+					parent.appendChild(elem);
+				}
+			}
+			var protocol = window.location.protocol === 'http:' ? 'ws://' : 'wss://';
+			var address = protocol + window.location.host + window.location.pathname + '/ws';
+			var socket = new WebSocket(address);
+			socket.onmessage = function (msg) {
+				if (msg.data == 'reload') window.location.reload();
+				else if (msg.data == 'refreshcss') refreshCSS();
+			};
+			if (sessionStorage && !sessionStorage.getItem('IsThisFirstTime_Log_From_LiveServer')) {
+				console.log('Live reload enabled.');
+				sessionStorage.setItem('IsThisFirstTime_Log_From_LiveServer', true);
+			}
+		})();
+	}
+	else {
+		console.error('Upgrade your browser. This Browser is NOT supported WebSocket for Live-Reloading.');
+	}
+	// ]]>
+</script>
 
 
 <div id="yt-ext-info-bar" class="yt-ext-hidden">Skipping ads...</div></body></html>

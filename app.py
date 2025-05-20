@@ -262,6 +262,9 @@ def verify_student_otp():
         db.session.rollback()
         return jsonify({'error': f'Account creation failed: {str(e)}'}), 500
 
+
+
+# faculty and admin logins based on password given already
 # admin login
 @app.route('/admin_login', methods=['GET', 'POST'])
 def admin_login():
@@ -320,6 +323,8 @@ def faculty_login():
         "username": username,
     }), 200
 
+
+# dashboard route
 # faculty dashboard route
 @app.route('/faculty_dashboard')
 def faculty_dashboard():
@@ -335,6 +340,20 @@ def admin_dashboard():
         return redirect(url_for('index'))
 
     return render_template('admin_dashboard.html', username=session.get('username'))
+
+@app.route('/student_dashboard')
+def student_dashboard():
+    # Check if user is logged in
+    if 'user_id' not in session:
+        return redirect(url_for('index'))
+
+    # Check if user is a student
+    if session.get('user_type') != 'student':
+        return redirect(url_for('index'))
+
+    # Render the student dashboard
+    return render_template('student_dasboard.html', username=session.get('username', 'Student'))
+
 
 
 #Login Routes for Student
@@ -370,18 +389,7 @@ def login():
     })
 
 # student dashboard route
-@app.route('/student_dashboard')
-def student_dashboard():
-    # Check if user is logged in
-    if 'user_id' not in session:
-        return redirect(url_for('index'))
 
-    # Check if user is a student
-    if session.get('user_type') != 'student':
-        return redirect(url_for('index'))
-
-    # Render the student dashboard
-    return render_template('student_dasboard.html', username=session.get('username', 'Student'))
 
     # Check if user is logged in
     if 'user_id' not in session:
@@ -428,34 +436,68 @@ def get_user_data():
 # Time table insertion
 @app.route('/upload_timetable', methods=['POST'])
 def upload_timetable():
-    if 'user_id' not in session or session.get('user_type') != 'teacher':
+    if 'teacher_id' not in session:
         return jsonify({'error': 'Unauthorized'}), 401
     
     if 'timetable' not in request.files:
         return jsonify({'error': 'No file part'}), 400
     
-    file = request.files['timetable']
+    file = request.files.get('timetable')
+    if not file:
+        return jsonify({'error': 'No file uploaded'}), 400
+    
     if file.filename == '':
         return jsonify({'error': 'No selected file'}), 400
     
-    if file and allowed_file(file.filename):
-        # Get the current teacher
-        teacher = Teacher.query.filter_by(user_id=session['user_id']).first()
-    if not teacher:
-        return jsonify({'error': 'Teacher not found'}), 404
+    allowed = file.filename.lower().endswith(('.pdf', '.jpg', '.jpeg', '.png'))
+    if not allowed:
+        return jsonify({'error': 'Invalid file type'}), 400
+
     #Read the file data
     file_data = file.read()
-        
+    filename = file.filename
+
+    # Get the current teacher
+    teacher = db.session.get(Teacher, session['teacher_id'])
+    if not teacher:
+        return jsonify({'error': 'Teacher not found'}), 404
+
     # Update the teacher record
     teacher.time_table = file_data
-    teacher.time_table_filename = file.filename
+    teacher.time_table_filename = filename
 
     try:
         db.session.commit()
-        return jsonify({'message': 'Timetable uploaded successfully'}), 200
+        return jsonify({'success': True, 'message': 'Timetable uploaded successfully'}), 200
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': f'Upload failed: {str(e)}'}), 500
+
+@app.route('/save_unavailability', methods=['POST'])
+def save_unavailability():
+    if 'teacher_id' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    data = request.get_json()
+    dates = data.get('dates', [])
+    teacher = db.session.get(Teacher, session['teacher_id'])
+    if not teacher:
+        return jsonify({'error': 'Teacher not found'}), 404
+
+    # Optional: Remove previous unavailability for this teacher
+    TeacherUnavailability.query.filter_by(username=teacher.username).delete()
+
+    # Add new unavailable dates
+    for date_str in dates:
+        entry = TeacherUnavailability(username=teacher.username, date=date_str)
+        db.session.add(entry)
+
+    try:
+        db.session.commit()
+        return jsonify({'success': True}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
 
 # logout     
 @app.route('/logout')
