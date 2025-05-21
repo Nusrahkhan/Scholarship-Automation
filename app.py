@@ -1,10 +1,9 @@
-from flask import Flask, request, jsonify, render_template, session, abort, redirect, url_for
+from flask import Flask, request, jsonify, render_template, session, abort, redirect, url_for, make_response
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime, timezone
 from werkzeug.security import generate_password_hash, check_password_hash
 from utils import validate_college_email, allowed_file 
 import sqlite3
-import pyotp
 from datetime import datetime, timedelta
 from flask_mail import Mail, Message
 import json
@@ -52,46 +51,6 @@ def get_db():
     return conn
 
 
-# Generate and store OTP (valid for 5 mins)
-def generate_and_send_otp(email):
-    otp = ''.join([str(random.randint(0, 9)) for _ in range(6)])
-    expires_at = datetime.now() + timedelta(minutes=5)
-    
-    # Store OTP in database
-    conn = get_db()
-    conn.execute(
-        'INSERT INTO otp_store (email, otp, expires_at) VALUES (?, ?, ?)',
-        (email, otp, expires_at)
-    )
-    conn.commit()
-    conn.close()
-    
-    # Send OTP via email
-    msg = Message(
-        'Your Signup OTP',
-        sender='your_email@gmail.com',
-        recipients=[email]
-    )
-    msg.body = f'Your OTP is: {otp} (valid for 5 minutes)'
-    mail.send(msg)
-    return jsonify({
-        'message': 'OTP sent to your email',
-        'next_step': '/verify-otp'
-    }), 200
-
-# Verify OTP
-def verify_otp(email, user_otp):
-    conn = get_db()
-    otp_record = conn.execute(
-        'SELECT * FROM otp_store WHERE email = ? AND is_used = FALSE AND expires_at > CURRENT_TIMESTAMP ORDER BY created_at DESC LIMIT 1',
-        (email,)
-    ).fetchone()
-    conn.close()
-    
-    if otp_record and otp_record['otp'] == user_otp:
-        return True
-    return False
-
 # Mark OTP as used
 def mark_otp_used(email):
     conn = get_db()
@@ -99,63 +58,16 @@ def mark_otp_used(email):
         'UPDATE otp_store SET is_used = TRUE WHERE email = ?',
         (email,)
     )
+    # Delete old/used OTPs
+    conn.execute('''
+        DELETE FROM otp_store 
+        WHERE (is_used = TRUE) 
+        OR (expires_at < datetime('now'))
+    ''')
+
     conn.commit()
     conn.close()
 
-# ye student sign up haiii
-"""
-@app.route('/signup', methods=['POST'])
-def signup():
-    data = request.json
-    name = data.get('name') 
-    email = data.get('email')
-    password = data.get('password')
-    roll_number = data.get('roll_number')
-
-    # Validate email format using our custom validator
-    if not validate_college_email(email):
-        return jsonify({
-            'error': 'Please use your official college email address in the format: 160XXXYXXXX@mjcollege.ac.in\nExample: 16042175001@mjcollege.ac.in'
-        }), 400
-
-    # Check if passwords match (if confirm password is sent)
-    if 'confirm_password' in data and data['confirm_password'] != password:
-        return jsonify({'error': 'Passwords do not match'}), 400
-
-    # Check if email already exists
-    existing_student = Student.query.filter_by(email=email).first()
-    if existing_student:
-        return jsonify({'error': 'Email already registered'}), 400
-    
-    # Hash the password
-    password_hash = generate_password_hash(password)
-
-    # Create new student
-    new_student = Student(
-        username=name,
-        email=email,
-        password=password_hash,
-        roll_number=roll_number
-    )
-
-    # Insert user into database
-    try:
-        db.session.add(new_student)
-        db.session.commit()
-
-        # Set up a session for the newly registered user
-        session['user_id'] = new_student.user_id
-        session['user_type'] = 'student'
-        session['username'] = new_student.username
-
-        return jsonify({
-            'message': 'Registration successful! You can now login.',
-            'redirect': '/student_dashboard'
-        }), 201
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({'error': f'Registration failed: {str(e)}'}), 500
-"""
 
 #sign up routes
 #student signup and otp
@@ -215,14 +127,14 @@ def student_signup():
 
         return jsonify({
             'message': 'OTP sent to your college email',
-            'next_step': 'verify-otp'
+            'next_step': 'verify_otp'
         }), 200
 
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': f'Failed to send OTP: {str(e)}'}), 500
 
-@app.route('/verify-otp', methods=['POST'])
+@app.route('/verify_otp', methods=['POST'])
 def verify_otp():
     data = request.json
     user_otp = data.get('otp')
@@ -243,11 +155,11 @@ def verify_otp():
     if not otp_record or otp_record.otp != user_otp:
         return jsonify({'error': 'Invalid or expired OTP'}), 400
 
-    # Mark OTP as used
-    otp_record.is_used = True
-
     # Create student account
     try:
+
+        mark_otp_used(email)  # Mark OTP as used in the database
+
         new_student = Student(
             username=temp_data['name'],
             email=email,
@@ -275,7 +187,6 @@ def verify_otp():
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': f'Account creation failed: {str(e)}'}), 500
-
 
 @app.route('/verify')
 def verify_page():
@@ -362,6 +273,7 @@ def admin_dashboard():
 
     return render_template('admin_dashboard.html', username=session.get('username'))
 
+#student dashboard route
 @app.route('/student_dashboard')
 def student_dashboard():
     # Check if user is logged in
@@ -374,7 +286,6 @@ def student_dashboard():
 
     # Render the student dashboard
     return render_template('student_dashboard.html', username=session.get('username', 'Student'))
-
 
 
 #Login Routes for Student
@@ -454,6 +365,7 @@ def get_user_data():
         'user_type': session.get('user_type', 'unknown')
     })
 
+
 # Time table insertion
 @app.route('/upload_timetable', methods=['POST'])
 def upload_timetable():
@@ -494,6 +406,7 @@ def upload_timetable():
         db.session.rollback()
         return jsonify({'error': f'Upload failed: {str(e)}'}), 500
 
+# saving unavailability dates
 @app.route('/save_unavailability', methods=['POST'])
 def save_unavailability():
     if 'teacher_id' not in session:
@@ -519,6 +432,79 @@ def save_unavailability():
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': str(e)}), 500
+
+
+
+
+@app.route('/get_timetable/<int:teacher_id>')
+def get_timetable(teacher_id):
+    if 'user_id' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    teacher = Teacher.query.get_or_404(teacher_id)
+    
+    if not teacher.time_table:
+        return jsonify({'error': 'No timetable found'}), 404
+
+    response = make_response(teacher.time_table)
+    file_ext = teacher.time_table_filename.split('.')[-1].lower()
+    
+    content_types = {
+        'pdf': 'application/pdf',
+        'jpg': 'image/jpeg',
+        'jpeg': 'image/jpeg',
+        'png': 'image/png'
+    }
+    
+    response.headers['Content-Type'] = content_types.get(file_ext, 'application/octet-stream')
+    response.headers['Content-Disposition'] = f'inline; filename={teacher.time_table_filename}'
+    return response
+
+
+@app.route('/available_teachers', methods=['GET'])
+def available_teachers():
+    """Handle both API and view requests for available teachers"""
+    # Get date parameter or use current date
+    selected_date = request.args.get('date', datetime.now().strftime('%Y-%m-%d'))
+    
+    # Check if requesting JSON (API) or HTML (view)
+    want_json = request.headers.get('Accept') == 'application/json'
+    
+    try:
+        datetime.strptime(selected_date, '%Y-%m-%d')
+    except ValueError:
+        if want_json:
+            return jsonify({'error': 'Invalid date format. Use YYYY-MM-DD'}), 400
+        return "Invalid date format. Use YYYY-MM-DD", 400
+
+    # Get unavailable teacher IDs
+    unavailable_teacher_ids = [
+        t.user_id for t in TeacherUnavailability.query.filter_by(date=selected_date).all()
+    ]
+    # Get available teachers
+    available_teachers = Teacher.query.filter(
+        Teacher.user_id.notin_(unavailable_teacher_ids) if unavailable_teacher_ids else True
+    ).all()
+
+    if want_json:
+        # Return JSON response for API
+        teachers_data = [{
+            'user_id': teacher.user_id,
+            'username': teacher.username,
+            'has_timetable': teacher.time_table is not None,
+            'timetable_url': url_for('get_timetable', teacher_id=teacher.user_id, _external=True) 
+                           if teacher.time_table else None
+        } for teacher in available_teachers]
+
+        return jsonify({
+            'date': selected_date,
+            'available_teachers': teachers_data
+        })
+    else:
+        # Return HTML view
+        return render_template('available_teachers.html',
+                            teachers=available_teachers,
+                            selected_date=selected_date)
 
 # logout     
 @app.route('/logout')
