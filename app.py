@@ -127,14 +127,14 @@ def student_signup():
 
         return jsonify({
             'message': 'OTP sent to your college email',
-            'next_step': 'verify_otp'
+            'next_step': 'verify-otp'
         }), 200
 
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': f'Failed to send OTP: {str(e)}'}), 500
 
-@app.route('/verify_otp', methods=['POST'])
+@app.route('/verify-otp', methods=['POST'])
 def verify_otp():
     data = request.json
     user_otp = data.get('otp')
@@ -154,11 +154,12 @@ def verify_otp():
 
     if not otp_record or otp_record.otp != user_otp:
         return jsonify({'error': 'Invalid or expired OTP'}), 400
+    
+    otp_record.is_used = True
+    db.session.commit()
 
     # Create student account
     try:
-
-        mark_otp_used(email)  # Mark OTP as used in the database
 
         new_student = Student(
             username=temp_data['name'],
