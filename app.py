@@ -514,5 +514,19 @@ def logout():
     session.clear()
     return redirect(url_for('index'))
 
+# Document list route
+@app.route('/list_of_doc')
+def list_of_doc():
+    # Check if user is logged in
+    if 'user_id' not in session:
+        return redirect(url_for('index'))
+
+    # Check if user is a student
+    if session.get('user_type') != 'student':
+        return redirect(url_for('index'))
+
+    # Render the document list page
+    return render_template('list_of_doc.html')
+
 if __name__ == '__main__':
     app.run(debug = True, port = 8000)
