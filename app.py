@@ -2,13 +2,14 @@ from flask import Flask, request, jsonify, render_template, session, abort, redi
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime, timezone
 from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.utils import secure_filename
 from utils import validate_college_email, allowed_file 
 import sqlite3
 from datetime import datetime, timedelta
 from flask_mail import Mail, Message
 import json
 import random
-
+from models import db, Student, Admin, Teacher, TeacherUnavailability, ScholarshipApplication, OTP, Circular
 
 
 app = Flask(__name__)
@@ -28,7 +29,6 @@ app.config['MAIL_PASSWORD'] = params['gmail-password']  # Use App Password for G
 mail = Mail(app)
 
 
-from models import db, Student, Admin, Teacher, TeacherUnavailability, ScholarshipApplication, OTP
 db.init_app(app)
 
 # Home Page
@@ -284,6 +284,13 @@ def student_dashboard():
     # Check if user is a student
     if session.get('user_type') != 'student':
         return redirect(url_for('index'))
+    
+        # Verify student exists in database
+    student = Student.query.get(session['user_id'])
+    if not student:
+        # Invalid session - clear it and redirect
+        session.clear()
+        return redirect(url_for('index'))
 
     # Render the student dashboard
     return render_template('student_dashboard.html', username=session.get('username', 'Student'))
@@ -434,7 +441,74 @@ def save_unavailability():
         db.session.rollback()
         return jsonify({'error': str(e)}), 500
 
+# circular routes
+@app.route('/upload_circular', methods=['POST'])
+def upload_circular():
+    if 'admin_id' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
 
+    try:
+        title = request.form.get('title')
+        description = request.form.get('description')
+        file = request.files.get('circular_file')
+
+        if not title:
+            return jsonify({'error': 'Title is required'}), 400
+
+        circular = Circular(
+            title=title,
+            description=description
+        )
+
+        if file:
+            filename = secure_filename(file.filename)
+            circular.filename = filename
+            circular.file_data = file.read()
+
+        db.session.add(circular)
+        db.session.commit()
+
+        return jsonify({
+            'message': 'Circular uploaded successfully',
+            'circular': {
+                'title': circular.title,
+                'description': circular.description,
+                'has_attachment': bool(circular.file_data)
+            }
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/get_circulars')
+def get_circulars():
+    if 'user_id' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    circulars = Circular.query.filter_by(is_active=True).order_by(Circular.created_at.desc()).all()
+    return jsonify([{
+        'id': c.id,
+        'title': c.title,
+        'description': c.description,
+        'created_at': c.created_at.strftime('%d-%m-%Y'),
+        'has_attachment': bool(c.file_data)
+    } for c in circulars]), 200
+
+@app.route('/circular_file/<int:circular_id>')
+def get_circular_file(circular_id):
+    if 'user_id' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    circular = Circular.query.get_or_404(circular_id)
+    
+    if not circular.file_data:
+        return jsonify({'error': 'No file attached'}), 404
+
+    response = make_response(circular.file_data)
+    response.headers['Content-Type'] = 'application/octet-stream'
+    response.headers['Content-Disposition'] = f'attachment; filename={circular.filename}'
+    return response
 
 
 @app.route('/get_timetable/<int:teacher_id>')
