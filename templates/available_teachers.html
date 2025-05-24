@@ -66,6 +66,25 @@
             <p class="text-gray-600">No teachers available on {{ selected_date }}</p>
         </div>
         {% endif %}
+        </div>
+
+        <!-- Navigation Buttons -->
+        <div class="fixed bottom-0 left-0 right-0 bg-white shadow-lg p-4">
+            <div class="container mx-auto px-4 flex justify-between">
+                <button onclick="window.history.back()" 
+                        class="px-6 py-3 bg-gray-500 text-white rounded-xl hover:bg-gray-600 transition-all duration-200 flex items-center">
+                    <i class="fas fa-arrow-left mr-2"></i>
+                    Back
+                </button>
+                
+                <button onclick="window.location.href='/upload_doc'" 
+                        class="px-6 py-3 bg-gradient-to-r from-[#1a5240] to-[#1a5240] text-black rounded-xl hover:shadow-lg transition-all duration-200 flex items-center">
+                    Next
+                    <i class="fas fa-arrow-right ml-2"></i>
+                </button>
+            </div>
+        </div>
     </div>
+
 </body>
 </html>

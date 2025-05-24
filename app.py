@@ -55,7 +55,7 @@ def get_db():
 def mark_otp_used(email):
     conn = get_db()
     conn.execute(
-        'UPDATE otp_store SET is_used = TRUE WHERE email = ?',
+        'DELETE FROM otp_store WHERE email = ?',
         (email,)
     )
     # Delete old/used OTPs
@@ -93,6 +93,20 @@ def student_signup():
     existing_student = Student.query.filter_by(email=email).first()
     if existing_student:
         return jsonify({'error': 'Email already registered'}), 400
+
+        # **NEW: Check for existing OTP within 5 minutes (Rate Limiting)**
+    existing_otp = OTP.query.filter(
+        OTP.email == email,
+        OTP.created_at > datetime.now() - timedelta(minutes=5),
+        OTP.is_used == False
+    ).first()
+
+    if existing_otp:
+        time_remaining = 5 - (datetime.now() - existing_otp.created_at).total_seconds() / 60
+        return jsonify({
+            'error': f'OTP already sent! Please wait {int(time_remaining)} more minutes before requesting a new OTP.',
+            'time_remaining': int(time_remaining)
+        }), 429
 
     # Store temporary signup data in session
     session['temp_signup'] = {
@@ -145,6 +159,8 @@ def verify_otp():
     temp_data = session['temp_signup']
     email = temp_data['email']
 
+    cleanup_otps()  # Clean up old/used OTPs before verification
+
     # Verify OTP
     otp_record = OTP.query.filter(
         OTP.email == email,
@@ -155,8 +171,8 @@ def verify_otp():
     if not otp_record or otp_record.otp != user_otp:
         return jsonify({'error': 'Invalid or expired OTP'}), 400
     
+    # Delete the OTP immediately after successful verification
     otp_record.is_used = True
-    db.session.commit()
 
     # Create student account
     try:
@@ -188,6 +204,21 @@ def verify_otp():
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': f'Account creation failed: {str(e)}'}), 500
+
+def cleanup_otps():
+    """Clean up used and expired OTPs"""
+    try:
+        # Delete used OTPs
+        OTP.query.filter_by(is_used=True).delete()
+        
+        # Delete expired OTPs
+        OTP.query.filter(OTP.expires_at < datetime.now()).delete()
+        
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error cleaning up OTPs: {str(e)}")
+
 
 @app.route('/verify')
 def verify_page():
@@ -580,6 +611,12 @@ def available_teachers():
         return render_template('available_teachers.html',
                             teachers=available_teachers,
                             selected_date=selected_date)
+
+@app.route('/upload_doc')
+def upload_doc():
+    if 'user_id' not in session or session.get('user_type') != 'student':
+        return redirect(url_for('index'))
+    return render_template('upload_doc.html')
 
 # logout     
 @app.route('/logout')
