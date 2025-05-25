@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Registration</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap');
+        
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-image: url('https://i.pinimg.com/736x/ec/13/dc/ec13dc39e1f5723bb6768b8810992c7d.jpg');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            min-height: 100vh;
+        }
+        
+        .form-container {
+            background-color: rgba(247, 207, 216, 0.85); /* Translucent normal pink */
+            backdrop-filter: blur(5px);
+            -webkit-backdrop-filter: blur(5px);
+            box-shadow: 0 10px 30px rgba(142, 125, 190, 0.15);
+            border-radius: 0 1rem 1rem 0;
+        }
+        
+        /* Increase the overall container size */
+        .max-w-6xl {
+            max-width: 1000px !important; /* Larger max width */
+        }
+        
+        /* Increase padding in the form container */
+        .p-10 {
+            padding: 2rem !important;
+        }
+        
+        /* Increase padding in the illustration container */
+        .p-8 {
+            padding: 2rem !important;
+        }
+        
+        /* Make the illustration larger */
+        .w-64 {
+            width: 14rem !important; /* 224px instead of 160px */
+        }
+        
+        .h-64 {
+            height: 14rem !important; /* 224px instead of 160px */
+        }
+        
+        /* Increase text size */
+        .text-3xl {
+            font-size: 1.75rem !important;
+        }
+        
+        /* Increase spacing between form elements */
+        .space-y-6 > * + * {
+            margin-top: 1.25rem !important;
+        }
+        
+        /* Make input fields larger */
+        .py-3 {
+            padding-top: 0.6rem !important;
+            padding-bottom: 0.6rem !important;
+        }
+        
+        .input-field {
+            transition: all 0.3s ease;
+            border: 2px solid #A6D6D6;
+            background-color: rgba(255, 255, 255, 0.9); /* Slightly translucent inputs */
+            font-size: 1rem !important;
+        }
+        
+        .input-field:focus {
+            border-color: #8E7DBE;
+            box-shadow: 0 0 0 3px rgba(142, 125, 190, 0.2);
+            background-color: rgba(255, 255, 255, 1); /* Fully opaque when focused */
+        }
+        
+        .submit-btn {
+            transition: all 0.3s ease;
+            background-color: #8E7DBE;
+            padding: 0.7rem 1.5rem !important;
+            font-size: 1.1rem !important;
+        }
+        
+        .submit-btn:hover {
+            background-color: #7A6BA8;
+            transform: translateY(-2px);
+        }
+        
+        .illustration-container {
+            background-color: rgba(247, 207, 216, 0.85); /* Same as form container */
+            backdrop-filter: blur(5px);
+            -webkit-backdrop-filter: blur(5px);
+            border-radius: 1rem 0 0 1rem;
+        }
+        
+        .dropdown:hover .dropdown-menu {
+            display: block;
+        }
+        
+        .dropdown-menu {
+            background-color: white;
+            border: 2px solid #A6D6D6;
+        }
+        
+        .dropdown-option:hover {
+            background-color: #A6D6D6;
+        }
+        
+        /* Add a subtle overlay to improve form readability over the background image */
+        .form-overlay {
+            background-color: rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(2px);
+            -webkit-backdrop-filter: blur(2px);
+            border-radius: 1.5rem;
+            padding: 0.5rem !important;
+        }
+        
+        /* Increase label size */
+        label {
+            font-size: 1rem !important;
+            margin-bottom: 0.5rem !important;
+        }
+        
+        /* Make form icons larger */
+        .absolute.right-3.top-3 i {
+            font-size: 1.1rem !important;
+        }
+        
+        /* Remove internal border between containers */
+        .no-border-between {
+            border-right: none;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-6">
+    <div class="form-overlay">
+        <div class="w-full max-w-6xl bg-white/30 rounded-2xl overflow-hidden shadow-xl flex flex-col md:flex-row">
+            <!-- Left Side - Illustration (larger) -->
+            <div class="w-full md:w-2/5 p-8 illustration-container flex items-center justify-center">
+                <div class="text-center">
+                    <div class="relative w-64 h-64 mx-auto mb-4">
+                        <div class="absolute inset-0 bg-[#8E7DBE] rounded-full opacity-20 blur-xl"></div>
+                        <div class="absolute inset-4 bg-[#A6D6D6] rounded-full opacity-20 blur-md"></div>
+                        <div class="relative z-10 flex items-center justify-center w-full h-full">
+                            <i class="fas fa-graduation-cap text-[#8E7DBE] text-7xl"></i>
+                        </div>
+                    </div>
+                    <h2 class="text-3xl font-bold text-[#8E7DBE] mb-2">Scholarship Form</h2>
+                </div>
+            </div>
+            
+            <!-- Right Side - Form (larger) -->
+            <div class="w-full md:w-3/5 p-10 form-container flex items-center">
+                <form class="w-full space-y-6">
+                    <div>
+                        <label for="name" class="block text-[#8E7DBE] font-medium mb-1">Name</label>
+                        <div class="relative">
+                            <input type="text" id="name" class="w-full px-4 py-3 rounded-xl input-field focus:outline-none" placeholder="Enter your full name">
+                            <div class="absolute right-3 top-3 text-[#A6D6D6]">
+                                <i class="fas fa-user"></i>
+                            </div>
+                        </div>
+                    </div>
+                
+                <div>
+                    <label for="father-name" class="block text-[#8E7DBE] font-medium mb-1">Father's Name</label>
+                    <div class="relative">
+                        <input type="text" id="father-name" class="w-full px-4 py-3 rounded-xl input-field focus:outline-none" placeholder="Enter your father's name">
+                        <div class="absolute right-3 top-3 text-[#A6D6D6]">
+                            <i class="fas fa-user-friends"></i>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="relative">
+                    <label for="branch" class="block text-[#8E7DBE] font-medium mb-1">Branch</label>
+                    <div class="relative">
+                        <select id="branch" class="w-full px-4 py-3 rounded-xl input-field focus:outline-none appearance-none">
+                            <option value="" disabled selected>Select your branch</option>
+                            <option value="CSE">CSE</option>
+                            <option value="IT">IT</option>
+                            <option value="ECE">ECE</option>
+                            <option value="EEE">EEE</option>
+                            <option value="Mech">Mech</option>
+                            <option value="AIML">AIML</option>
+                            <option value="AIDS">AIDS</option>
+                            <option value="CSE(DS)">CSE(DS)</option>
+                            <option value="CSAI">CSAI</option>
+                            <option value="Civil">Civil</option>
+                        </select>
+                        <div class="absolute right-3 top-3 text-[#8E7DBE] pointer-events-none">
+                            <i class="fas fa-chevron-down"></i>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label for="student-type" class="block text-[#8E7DBE] font-medium mb-1">LE / Regular</label>
+                        <div class="relative">
+                            <select id="student-type" class="w-full px-4 py-3 rounded-xl input-field focus:outline-none appearance-none">
+                                <option value="" disabled selected>Select type</option>
+                                <option value="regular">Regular</option>
+                                <option value="lateral">Lateral Entry</option>
+                            </select>
+                            <div class="absolute right-3 top-3 text-[#8E7DBE] pointer-events-none">
+                                <i class="fas fa-chevron-down"></i>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <label for="year" class="block text-[#8E7DBE] font-medium mb-1">Year of Study</label>
+                        <div class="relative">
+                            <select id="year" class="w-full px-4 py-3 rounded-xl input-field focus:outline-none appearance-none">
+                                <option value="" disabled selected>Select year</option>
+                                <option value="1">1st Year</option>
+                                <option value="2">2nd Year</option>
+                                <option value="3">3rd Year</option>
+                                <option value="4">4th Year</option>
+                            </select>
+                            <div class="absolute right-3 top-3 text-[#8E7DBE] pointer-events-none">
+                                <i class="fas fa-chevron-down"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <button type="submit" class="w-full py-3 px-4 rounded-xl text-white font-semibold submit-btn focus:outline-none">
+                    Submit Registration
+                    <i class="fas fa-paper-plane ml-2"></i>
+                </button>
+                
+                <div class="text-center text-[#8E7DBE] opacity-70 text-sm">
+                    <p>Already registered? <a href="#" class="font-medium hover:underline">Login here</a></p>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <script>
+        // Simple form validation
+        document.querySelector('form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            // Get form values
+            const name = document.getElementById('name').value;
+            const fatherName = document.getElementById('father-name').value;
+            const branch = document.getElementById('branch').value;
+            const studentType = document.getElementById('student-type').value;
+            const year = document.getElementById('year').value;
+            
+            // Simple validation
+            if (!name || !fatherName || !branch || !studentType || !year) {
+                alert('Please fill in all fields');
+                return;
+            }
+            
+            // If all good, show success message
+            alert('Registration submitted successfully!');
+            
+            // Reset form
+            this.reset();
+        });
+        
+        // Add hover effects to dropdowns
+        document.querySelectorAll('select').forEach(select => {
+            select.addEventListener('mouseenter', function() {
+                this.style.borderColor = '#8E7DBE';
+            });
+            
+            select.addEventListener('mouseleave', function() {
+                if (!this.matches(':focus')) {
+                    this.style.borderColor = '#A6D6D6';
+                }
+            });
+        });
+    </script>
+</body>
+</html>
