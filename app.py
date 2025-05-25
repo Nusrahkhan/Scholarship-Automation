@@ -541,7 +541,8 @@ def get_circular_file(circular_id):
     response.headers['Content-Disposition'] = f'attachment; filename={circular.filename}'
     return response
 
-
+# route for displaying content on available teachers page
+# displaying timetable for teachers
 @app.route('/get_timetable/<int:teacher_id>')
 def get_timetable(teacher_id):
     if 'user_id' not in session:
@@ -566,7 +567,7 @@ def get_timetable(teacher_id):
     response.headers['Content-Disposition'] = f'inline; filename={teacher.time_table_filename}'
     return response
 
-
+# API route to get available teachers
 @app.route('/available_teachers', methods=['GET'])
 def available_teachers():
     """Handle both API and view requests for available teachers"""
@@ -612,6 +613,8 @@ def available_teachers():
                             teachers=available_teachers,
                             selected_date=selected_date)
 
+
+
 @app.route('/upload_doc')
 def upload_doc():
     if 'user_id' not in session or session.get('user_type') != 'student':
@@ -624,6 +627,58 @@ def logout():
     # Clear the session
     session.clear()
     return redirect(url_for('index'))
+
+# Fill form route
+@app.route('/fill_form')
+def fill_form():
+    if 'user_id' not in session or session.get('user_type') != 'student':
+        return redirect(url_for('index'))
+        return "Roll number missing from session", 400
+    return render_template('fill_form.html')
+
+# Scholarship application form submission
+@app.route('/submit_scholarship_form', methods=['POST'])
+def submit_scholarship_form():
+    if 'user_id' not in session or session.get('user_type') != 'student':
+        return jsonify({'error': 'Unauthorized'}), 401
+        
+    try:
+        data = request.get_json()
+
+        if not all(data.get(field) for field in ['id', 'roll_number', 'branch', 'year']):
+            return jsonify({'error': 'Missing required fields'}), 400
+
+        # Check if application already exists
+        existing_app = ScholarshipApplication.query.filter_by(
+            roll_number=data['roll_number'],
+            year=data['year']
+        ).first()
+        
+        if existing_app:
+            return jsonify({'error': 'Application already exists for this year'}), 400
+        
+        # Create new application
+        application = ScholarshipApplication(
+            id = data['id'],
+            roll_number=data['roll_number'],
+            branch=data['branch'],
+            year=data['year'],
+            lateral_entry=data['lateral_entry'],
+            scholarship_state='started'
+        )
+        
+        db.session.add(application)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Application submitted successfully',
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        print("Error:", str(e))  # Debug log
+        return jsonify({'error': str(e)}), 500
 
 # Document list route
 @app.route('/list_of_doc')
@@ -638,6 +693,7 @@ def list_of_doc():
 
     # Render the document list page
     return render_template('list_of_doc.html')
+
 
 if __name__ == '__main__':
     app.run(debug = True, port = 8000)

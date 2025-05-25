@@ -40,9 +40,14 @@ class TeacherUnavailability(db.Model):
         return f"TeacherUnavailability('{self.username}', '{self.date}')"
 
 class ScholarshipApplication(db.Model):
-    user_id = db.Column(db.Integer,primary_key = True, nullable=False, autoincrement=True)
+    id = db.Column(db.String(20), primary_key=True)
     roll_number = db.Column(db.String(80), nullable=False)
-    scholarship_state = db.Column(db.String(80))
+    branch = db.Column(db.String(80), nullable=False)
+    year = db.Column(db.String(20), nullable=False)
+    lateral_entry = db.Column(db.Boolean, default=False)  # LE field
+    scholarship_state = db.Column(db.String(80), default='pending')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
 
     def __repr__(self) -> str:
         return f"ScholarshipApplication('{self.roll_number}', '{self.scholarship_state}')"

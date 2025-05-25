@@ -311,4 +311,30 @@
         </div>
     </div>
 </body>
+
+<script>
+    // Get the date input element
+    const dateInput = document.querySelector('input[type="date"]');
+    
+    // Set min date to today
+    dateInput.min = new Date().toISOString().split('T')[0];
+    
+    // Disable Sundays
+    dateInput.addEventListener('input', function(e) {
+        const selected = new Date(this.value);
+        if (selected.getDay() === 0) { // 0 is Sunday
+            alert('Sundays are not available for selection');
+            this.value = ''; // Clear the invalid selection
+        }
+    });
+
+    // Additional validation before form submission
+    document.querySelector('form').addEventListener('submit', function(e) {
+        const selected = new Date(dateInput.value);
+        if (selected.getDay() === 0) {
+            e.preventDefault();
+            alert('Please select a day other than Sunday');
+        }
+    });
+</script>
 </html>
