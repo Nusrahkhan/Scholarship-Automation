@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -13,7 +14,7 @@
             --accent-aqua: #a0ac8c;
             --text-purple: #743444;
         }
-        
+
         body {
             background-image: url('https://i.pinimg.com/736x/f7/ec/24/f7ec243fe2b30f7912ac3243f75b7149.jpg');
             background-size: cover;
@@ -22,103 +23,128 @@
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             min-height: 100vh;
         }
-        
+
         .card {
             background-color: white;
             border-radius: 12px;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
-        
+
         .btn-primary {
             background-color: var(--text-purple);
             color: white;
         }
-        
+
         .btn-primary:hover {
             background-color: #743444;
         }
-        
+
         .btn-disabled {
             background-color: #E5E7EB;
             color: #a0ac8c;
             cursor: not-allowed;
         }
-        
+
         .calendar-day {
             transition: all 0.2s ease;
         }
-        
+
         .calendar-day:hover:not(.disabled):not(.selected) {
             background-color: var(--accent-aqua);
             color: white;
         }
-        
+
         .selected {
             background-color: var(--text-purple);
             color: white;
         }
-        
+
         .disabled {
             color: #D1D5DB;
             cursor: not-allowed;
         }
-        
+
         .time-slot {
             transition: all 0.2s ease;
         }
-        
+
         .time-slot:hover:not(.booked) {
             background-color: var(--accent-aqua);
             color: white;
         }
-        
+
         .time-slot.selected {
             background-color: var(--text-purple);
             color: white;
         }
-        
+
         .booked {
             background-color: #E5E7EB;
             color: #a0ac8c;
             cursor: not-allowed;
         }
-        
+
         .calendar-day.disabled {
             color: #ad4444;
             cursor: not-allowed;
         }
     </style>
 </head>
+
 <body class="min-h-screen py-8 px-4 sm:px-6 lg:px-8">
     <!-- Navbar -->
-    <nav class="fixed top-0 left-0 right-0 z-50 px-6 py-3" style="background-color: rgba(255, 255, 255, 0.6); backdrop-filter: blur(5px);">
+    <nav class="fixed top-0 left-0 right-0 z-50 px-6 py-3"
+        style="background-color: rgba(255, 255, 255, 0.6); backdrop-filter: blur(5px);">
         <div class="container mx-auto">
             <div class="flex items-center">
                 <h1 class="text-2xl font-bold" style="color: #743444;">Schedule Your Appointment</h1>
             </div>
         </div>
     </nav>
-    
+
     <!-- Main Content (add margin-top to account for navbar) -->
     <div class="max-w-3xl mx-auto mt-16">
         <!-- Confirmation Card -->
-        <div class="card p-6 mb-8 mx-auto" style="background-color: rgba(255, 255, 255, 0.7); backdrop-filter: blur(5px); max-width: 70%; border-radius: 12px;">
-            <div class="flex items-start">
-                <div class="flex items-center h-5 mt-1.5">
-                    <input id="meeseva-confirm" type="checkbox" class="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500">
+        <div class="card p-6 mb-8 mx-auto"
+            style="background-color: rgba(255, 255, 255, 0.7); backdrop-filter: blur(5px); max-width: 70%; border-radius: 12px;">
+            <h3 class="font-medium text-gray-700 mb-3" style="font-size: 1.1rem;">Upload your Meeseva slip to book an
+                appointment</h3>
+            <p class="text-gray-500 mb-4 italic">⚠️ You must complete the Meeseva process before booking an appointment.
+            </p>
+
+            <div
+                class="upload-box relative rounded-lg p-4 text-center cursor-pointer border-2 border-dashed border-gray-300 hover:border-#743444 transition-colors">
+                <div class="upload-content">
+                    <i class="fas fa-cloud-upload-alt text-2xl text-[#743444] mb-2"></i>
+                    <p class="text-gray-600">Drag & Drop or Click to Upload</p>
+                    <p class="text-xs text-gray-400 mt-1">PDF, JPG, or PNG (Max 5MB)</p>
                 </div>
-                <div class="ml-3">
-                    <label for="meeseva-confirm" class="font-medium text-gray-700" style="font-size: 1.1rem;">I have completed the process at Meeseva and collected the slip.</label>
-                    <p class="text-gray-500 mt-1 italic">⚠️You must complete the Meeseva process before booking an appointment.</p>
+                <div class="upload-preview hidden items-center justify-between mt-3">
+                    <div class="flex items-center">
+                        <i class="fas fa-file-alt text-[#743444] mr-2"></i>
+                        <span class="file-name text-gray-700"></span>
+                    </div>
+                    <div class="flex items-center">
+                        <i class="fas fa-check text-green-500 mr-2"></i>
+                        <button class="remove-btn text-xs px-2 py-1 rounded bg-gray-200 hover:bg-gray-300">Remove</button>
+                    </div>
                 </div>
+                <input type="file" id="meeseva-slip" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" accept=".pdf,.jpg,.jpeg,.png">
+            </div>
+
+            <div class="mt-4 text-center">
+                <button id="submit-slip" class="bg-[#743444] text-white py-2 px-6 rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                    Submit Slip
+                </button>
             </div>
         </div>
-        
+
         <!-- Appointment Booking Section (Initially Hidden) -->
         <div id="booking-section" class="hidden">
-            <div class="card p-6 mb-8 mx-auto" style="background-color: rgba(255, 255, 255, 0.7); backdrop-filter: blur(5px); width: 70%; height: 450px; display: flex; flex-direction: column; border-radius: 12px;">
+            <div class="card p-6 mb-8 mx-auto"
+                style="background-color: rgba(255, 255, 255, 0.7); backdrop-filter: blur(5px); width: 70%; height: 450px; display: flex; flex-direction: column; border-radius: 12px;">
                 <h2 class="text-xl font-semibold text-gray-800 mb-2">Select Appointment Date</h2>
-                
+
                 <!-- Calendar Navigation -->
                 <div class="flex justify-between items-center mb-2">
                     <button id="prev-month" class="p-1 rounded-full hover:bg-gray-100">
@@ -129,7 +155,7 @@
                         <i class="fas fa-chevron-right text-gray-600"></i>
                     </button>
                 </div>
-                
+
                 <!-- Calendar Grid -->
                 <div class="grid grid-cols-7 gap-1 mb-1">
                     <div class="text-center font-medium text-gray-500 py-1 text-sm">Sun</div>
@@ -140,37 +166,42 @@
                     <div class="text-center font-medium text-gray-500 py-1 text-sm">Fri</div>
                     <div class="text-center font-medium text-gray-500 py-1 text-sm">Sat</div>
                 </div>
-                
+
                 <div id="calendar-days" class="grid grid-cols-7 gap-1 flex-grow">
                     <!-- Calendar days will be populated by JavaScript -->
                 </div>
             </div>
-            
+
             <!-- Time Slot Selection Modal -->
-            <div id="time-slot-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div id="time-slot-modal"
+                class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
                 <div class="card w-full max-w-md p-6">
                     <div class="flex justify-between items-center mb-4">
-                        <h3 id="selected-date" class="text-lg font-medium text-gray-800">Time Slots for June 15, 2023</h3>
+                        <h3 id="selected-date" class="text-lg font-medium text-gray-800">Time Slots for June 15, 2023
+                        </h3>
                         <button id="close-modal" class="p-2 rounded-full hover:bg-gray-100">
                             <i class="fas fa-times text-gray-600"></i>
                         </button>
                     </div>
-                    
+
                     <div id="time-slots" class="grid grid-cols-2 gap-2 mb-6">
                         <!-- Time slots will be populated by JavaScript -->
                     </div>
-                    
+
                     <div class="flex justify-end">
-                        <button id="confirm-slot" class="btn-primary px-4 py-2 rounded-md font-medium disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                        <button id="confirm-slot"
+                            class="btn-primary px-4 py-2 rounded-md font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                            disabled>
                             Confirm Time Slot
                         </button>
                     </div>
                 </div>
             </div>
-            
+
             <!-- Complete Process Button -->
             <div class="flex justify-center mt-8">
-                <button id="complete-process" class="btn-primary px-8 py-3 rounded-md font-medium text-lg btn-disabled" disabled>
+                <button id="complete-process" class="btn-primary px-8 py-3 rounded-md font-medium text-lg btn-disabled"
+                    disabled>
                     Complete Process
                 </button>
             </div>
@@ -178,9 +209,15 @@
     </div>
 
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             // Elements
-            const meesevaConfirm = document.getElementById('meeseva-confirm');
+            const uploadBox = document.querySelector('.upload-box');
+            const fileInput = document.getElementById('meeseva-slip');
+            const uploadContent = document.querySelector('.upload-content');
+            const uploadPreview = document.querySelector('.upload-preview');
+            const fileName = document.querySelector('.file-name');
+            const removeBtn = document.querySelector('.remove-btn');
+            const submitSlipBtn = document.getElementById('submit-slip');
             const bookingSection = document.getElementById('booking-section');
             const prevMonthBtn = document.getElementById('prev-month');
             const nextMonthBtn = document.getElementById('next-month');
@@ -192,36 +229,108 @@
             const timeSlotsEl = document.getElementById('time-slots');
             const confirmSlotBtn = document.getElementById('confirm-slot');
             const completeProcessBtn = document.getElementById('complete-process');
-            
+
             // State
             let currentDate = new Date();
             let currentMonth = currentDate.getMonth();
             let currentYear = currentDate.getFullYear();
             let selectedDate = null;
             let selectedTimeSlot = null;
-            
+
             // Indian Public Holidays for 2023 (sample data)
             const publicHolidays = [
-                '2023-01-26', // Republic Day
-                '2023-08-15', // Independence Day
-                '2023-10-02', // Gandhi Jayanti
-                '2023-12-25', // Christmas
+                '2025-01-26', // Republic Day
+                '2025-03-14', // Holi
+                '2025-03-31', // Eid al-Fitr
+                '2025-04-06', // Ram Navami
+                '2025-04-10', // Mahavir Jayanti
+                '2025-04-14', // Ambedkar Jayanti
+                '2025-04-18', // Good Friday
+                '2025-05-12', // Buddha Purnima
+                '2025-06-07', // Bakrid / Eid al-Adha
+                '2025-08-15', // Independence Day
+                '2025-09-05', // Milad-un-Nabi
+                '2025-10-02', // Gandhi Jayanti
+                '2025-10-20', // Diwali
+                '2025-11-05', // Guru Nanak Jayanti
+                '2025-12-25', // Christmas
+
                 // Add more holidays as needed
             ];
-            
-            // Toggle booking section based on checkbox
-            meesevaConfirm.addEventListener('change', function() {
-                if (this.checked) {
-                    bookingSection.classList.remove('hidden');
-                    renderCalendar();
-                } else {
-                    bookingSection.classList.add('hidden');
-                    resetSelection();
+
+            // Handle file upload
+            uploadBox.addEventListener('click', (e) => {
+                if (e.target !== fileInput && e.target !== removeBtn) {
+                    fileInput.click();
                 }
             });
-            
+
+            fileInput.addEventListener('change', (e) => {
+                if (fileInput.files.length) {
+                    const file = fileInput.files[0];
+                    fileName.textContent = file.name;
+                    uploadContent.classList.add('hidden');
+                    uploadPreview.classList.remove('hidden');
+                    uploadPreview.classList.add('flex');
+                    uploadBox.classList.add('border-purple-500');
+                    submitSlipBtn.disabled = false;
+                }
+            });
+
+            // Handle drag and drop
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                uploadBox.addEventListener(eventName, (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                });
+            });
+
+            ['dragenter', 'dragover'].forEach(eventName => {
+                uploadBox.addEventListener(eventName, () => {
+                    uploadBox.classList.add('border-purple-500');
+                });
+            });
+
+            ['dragleave', 'drop'].forEach(eventName => {
+                uploadBox.addEventListener(eventName, () => {
+                    if (!uploadPreview.classList.contains('hidden')) return;
+                    uploadBox.classList.remove('border-purple-500');
+                });
+            });
+
+            uploadBox.addEventListener('drop', (e) => {
+                fileInput.files = e.dataTransfer.files;
+                if (fileInput.files.length) {
+                    const file = fileInput.files[0];
+                    fileName.textContent = file.name;
+                    uploadContent.classList.add('hidden');
+                    uploadPreview.classList.remove('hidden');
+                    uploadPreview.classList.add('flex');
+                    submitSlipBtn.disabled = false;
+                }
+            });
+
+            // Handle remove button
+            removeBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                fileInput.value = '';
+                uploadContent.classList.remove('hidden');
+                uploadPreview.classList.add('hidden');
+                uploadPreview.classList.remove('flex');
+                uploadBox.classList.remove('border-purple-500');
+                submitSlipBtn.disabled = true;
+            });
+
+            // Submit slip and show booking section
+            submitSlipBtn.addEventListener('click', function () {
+                bookingSection.classList.remove('hidden');
+                renderCalendar();
+                // Scroll to booking section
+                bookingSection.scrollIntoView({ behavior: 'smooth' });
+            });
+
             // Calendar navigation
-            prevMonthBtn.addEventListener('click', function() {
+            prevMonthBtn.addEventListener('click', function () {
                 currentMonth--;
                 if (currentMonth < 0) {
                     currentMonth = 11;
@@ -229,19 +338,19 @@
                 }
                 renderCalendar();
             });
-            
-            nextMonthBtn.addEventListener('click', function() {
+
+            nextMonthBtn.addEventListener('click', function () {
                 currentMonth++;
                 if (currentMonth > 11) {
                     currentMonth = 0;
                     currentYear++;
                 }
-                
+
                 // Check if we're going more than 1 month ahead
                 const now = new Date();
                 const maxDate = new Date(now.getFullYear(), now.getMonth() + 1, now.getDate());
                 const viewingDate = new Date(currentYear, currentMonth, 1);
-                
+
                 if (viewingDate > maxDate) {
                     currentMonth--;
                     if (currentMonth < 0) {
@@ -251,19 +360,19 @@
                     alert('You can only book appointments up to one month in advance.');
                     return;
                 }
-                
+
                 renderCalendar();
             });
-            
+
             // Close modal
-            closeModalBtn.addEventListener('click', function() {
+            closeModalBtn.addEventListener('click', function () {
                 timeSlotModal.classList.add('hidden');
                 selectedTimeSlot = null;
                 confirmSlotBtn.disabled = true;
             });
-            
+
             // Confirm time slot
-            confirmSlotBtn.addEventListener('click', function() {
+            confirmSlotBtn.addEventListener('click', function () {
                 if (selectedTimeSlot) {
                     timeSlotModal.classList.add('hidden');
                     completeProcessBtn.disabled = false;
@@ -271,31 +380,31 @@
                     completeProcessBtn.classList.add('btn-primary');
                 }
             });
-            
+
             // Complete process
-            completeProcessBtn.addEventListener('click', function() {
+            completeProcessBtn.addEventListener('click', function () {
                 if (!this.disabled) {
                     alert(`Appointment confirmed for ${selectedDate.toDateString()} at ${selectedTimeSlot}`);
                     // Here you would typically submit the form to your backend
                 }
             });
-            
+
             // Render calendar
             function renderCalendar() {
                 // Set month/year display
                 const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
                 currentMonthEl.textContent = `${monthNames[currentMonth]} ${currentYear}`;
-                
+
                 // Get first day of month and total days
                 const firstDay = new Date(currentYear, currentMonth, 1).getDay();
                 const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
-                
+
                 // Get days from previous month
                 const prevMonthDays = new Date(currentYear, currentMonth, 0).getDate();
-                
+
                 // Clear calendar
                 calendarDays.innerHTML = '';
-                
+
                 // Add days from previous month (disabled)
                 for (let i = 0; i < firstDay; i++) {
                     const day = prevMonthDays - firstDay + i + 1;
@@ -304,11 +413,11 @@
                     dayEl.textContent = day;
                     calendarDays.appendChild(dayEl);
                 }
-                
+
                 // Add days from current month
                 const today = new Date();
                 today.setHours(0, 0, 0, 0);
-                
+
                 for (let i = 1; i <= daysInMonth; i++) {
                     const date = new Date(currentYear, currentMonth, i);
                     const dateStr = formatDate(date);
@@ -316,30 +425,30 @@
                     const isHoliday = publicHolidays.includes(dateStr);
                     const isPast = date < today;
                     const isDisabled = isSunday || isHoliday || isPast;
-                    
+
                     const dayEl = document.createElement('div');
                     dayEl.className = `calendar-day text-center py-2 rounded cursor-pointer ${isDisabled ? 'disabled' : 'hover:bg-blue-100'}`;
                     dayEl.textContent = i;
-                    
+
                     if (isDisabled) {
                         dayEl.classList.add('disabled');
                     } else {
-                        dayEl.addEventListener('click', function() {
+                        dayEl.addEventListener('click', function () {
                             selectDate(date, i);
                         });
                     }
-                    
+
                     if (isSunday || isHoliday) {
                         dayEl.title = isSunday ? 'Sunday - Closed' : 'Public Holiday - Closed';
                     }
-                    
+
                     calendarDays.appendChild(dayEl);
                 }
-                
+
                 // Add days from next month (disabled)
                 const totalDays = firstDay + daysInMonth;
                 const nextMonthDays = 7 - (totalDays % 7);
-                
+
                 if (nextMonthDays < 7) {
                     for (let i = 1; i <= nextMonthDays; i++) {
                         const dayEl = document.createElement('div');
@@ -349,11 +458,11 @@
                     }
                 }
             }
-            
+
             // Select date and show time slots
             function selectDate(date, day) {
                 selectedDate = date;
-                
+
                 // Highlight selected day
                 const days = calendarDays.querySelectorAll('.calendar-day');
                 days.forEach(dayEl => {
@@ -362,113 +471,113 @@
                         dayEl.classList.add('selected');
                     }
                 });
-                
+
                 // Show time slots modal
                 selectedDateEl.textContent = `Time Slots for ${date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}`;
                 renderTimeSlots(date);
                 timeSlotModal.classList.remove('hidden');
             }
-            
+
             // Render time slots for selected date
             function renderTimeSlots(date) {
                 timeSlotsEl.innerHTML = '';
                 selectedTimeSlot = null;
                 confirmSlotBtn.disabled = true;
-                
+
                 const isFriday = date.getDay() === 5;
-                
+
                 // Morning slots (9:30 AM - 1:00 PM)
                 for (let hour = 9; hour <= 12; hour++) {
                     for (let minute = 0; minute < 60; minute += 30) {
                         // Skip 9:00 AM
                         if (hour === 9 && minute === 0) continue;
-                        
+
                         // Skip 1:00 PM
                         if (hour === 12 && minute === 30) continue;
-                        
+
                         // Special case for Friday (skip 12:30 PM)
                         if (isFriday && hour === 12 && minute === 0) continue;
-                        
+
                         const timeStr = formatTime(hour, minute);
                         createTimeSlot(timeStr);
                     }
                 }
-                
+
                 // Afternoon slots (2:00 PM - 3:00 PM)
                 for (let hour = 14; hour <= 15; hour++) {
                     for (let minute = 0; minute < 60; minute += 30) {
                         // Skip 3:30 PM
                         if (hour === 15 && minute === 30) continue;
-                        
+
                         const timeStr = formatTime(hour, minute);
                         createTimeSlot(timeStr);
                     }
                 }
             }
-            
+
             // Create a time slot element
             function createTimeSlot(timeStr) {
                 const slotEl = document.createElement('button');
                 slotEl.className = 'time-slot px-3 py-2 rounded border border-gray-200 text-sm font-medium';
-                
+
                 // Parse the time string to get hour and minute
                 const [time, period] = timeStr.split(' ');
                 const [hour, minute] = time.split(':').map(num => parseInt(num, 10));
-                
+
                 // Calculate end time (30 minutes later)
                 let endHour = hour;
                 let endMinute = minute + 30;
                 let endPeriod = period;
-                
+
                 if (endMinute >= 60) {
                     endMinute = 0;
                     endHour += 1;
-                    
+
                     // Handle period change (AM to PM)
                     if (endHour === 12 && period === 'AM') {
                         endPeriod = 'PM';
                     }
                 }
-                
+
                 // Format the end time
                 const endTime = `${endHour}:${endMinute === 0 ? '00' : endMinute}`;
-                
+
                 // Set the time slot text to show the interval
                 slotEl.textContent = `${time}-${endTime} ${period}`;
-                
+
                 // Remove random booking logic
                 // All slots will be available
-                slotEl.addEventListener('click', function() {
+                slotEl.addEventListener('click', function () {
                     // Deselect all slots
                     document.querySelectorAll('.time-slot').forEach(slot => {
                         slot.classList.remove('selected');
                     });
-                    
+
                     // Select this slot
                     this.classList.add('selected');
                     selectedTimeSlot = `${time}-${endTime} ${period}`;
                     confirmSlotBtn.disabled = false;
                 });
-                
+
                 timeSlotsEl.appendChild(slotEl);
             }
-            
+
             // Reset selection
             function resetSelection() {
                 selectedDate = null;
                 selectedTimeSlot = null;
-                
+
                 // Remove selection from calendar
                 document.querySelectorAll('.calendar-day').forEach(day => {
                     day.classList.remove('selected');
                 });
-                
+
                 // Disable complete process button
                 completeProcessBtn.disabled = true;
                 completeProcessBtn.classList.add('btn-disabled');
                 completeProcessBtn.classList.remove('btn-primary');
             }
-            
+
             // Helper function to format date as YYYY-MM-DD
             function formatDate(date) {
                 const year = date.getFullYear();
@@ -476,7 +585,7 @@
                 const day = String(date.getDate()).padStart(2, '0');
                 return `${year}-${month}-${day}`;
             }
-            
+
             // Helper function to format time
             function formatTime(hour, minute) {
                 const period = hour >= 12 ? 'PM' : 'AM';
@@ -484,7 +593,7 @@
                 const displayMinute = String(minute).padStart(2, '0');
                 return `${displayHour}:${displayMinute} ${period}`;
             }
-            
+
             // Initial render
             if (meesevaConfirm.checked) {
                 bookingSection.classList.remove('hidden');
@@ -493,4 +602,5 @@
         });
     </script>
 </body>
+
 </html>
