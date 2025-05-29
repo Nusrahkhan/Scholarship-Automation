@@ -2,3 +2,17 @@ Flask==2.3.3
 Flask-SQLAlchemy==3.0.5
 Flask-Mail==0.9.1
 Werkzeug==2.3.7
+
+#flask==2.3.3
+#flask-restful==0.3.10
+pytesseract==0.3.10
+spacy==3.7.2
+Pillow==10.1.0
+celery==5.3.4
+redis==5.0.1
+python-dotenv==1.0.0
+pytest==7.4.3
+#SQLAlchemy==2.0.23
+opencv-python==4.8.1.78
+numpy==1.24.3
+scikit-image==0.21.0

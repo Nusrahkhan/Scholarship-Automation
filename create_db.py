@@ -1,4 +1,4 @@
-from app import app, db
+from main import app, db
 import os
 from datetime import datetime
 from models import Student, Admin, Teacher, Circular, TeacherUnavailability, ScholarshipApplication, OTP
