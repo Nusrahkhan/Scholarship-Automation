@@ -7,6 +7,23 @@ import numpy as np
 from PIL import Image, ImageEnhance, ImageFilter, ImageOps
 from ..utils.image_utils import preprocess_image
 from ..utils.pdf_utils import convert_pdf_to_images
+# Add these imports at the top
+import google.generativeai as genai
+from PIL import Image
+import os
+from typing import Optional, List, Dict
+
+class GeminiConfig:
+    """Configuration for Gemini API"""
+    API_KEY = os.getenv('GEMINI_API_KEY')  # Get API key from environment variable
+    MODEL_NAME = "gemini-1.5-flash"  # Model for image/document understanding
+    
+    @staticmethod
+    def configure():
+        """Configure Gemini with API key"""
+        if not GeminiConfig.API_KEY:
+            raise ValueError("Gemini API key not found in environment variables")
+        genai.configure(api_key=GeminiConfig.API_KEY)
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -19,6 +36,139 @@ class OCRService:
         """Initialize OCR service with optional Tesseract path."""
         if tesseract_path:
             pytesseract.pytesseract.tesseract_cmd = tesseract_path
+
+    def extract_text_with_gemini(self, file_path: str) -> Optional[Dict]:
+        """
+        Extract text from document using Gemini Vision API.
+        Returns both extracted text and structured information.
+        """
+        try:
+            # Configure Gemini
+            GeminiConfig.configure()
+            model = genai.GenerativeModel(GeminiConfig.MODEL_NAME)
+
+            # Load and prepare image
+            image = Image.open(file_path)
+            
+            # Prompt for document analysis
+            prompt = """
+            Please analyze this document carefully and extract the following:
+            1. All text content maintaining formatting
+            2. Any key fields like dates, names, ID numbers
+            3. Document type (application form, certificate, etc.)
+            4. Whether it's a fresh application or renewal
+            5. Important numerical values (percentages, marks, etc.)
+            
+            Format the response as structured data.
+            """
+
+            # Generate response from Gemini
+            response = model.generate_content([prompt, image])
+            
+            if response and response.text:
+                # Parse structured response
+                result = {
+                    'extracted_text': response.text,
+                    'document_info': self._parse_gemini_response(response.text)
+                }
+                logger.info(f"Gemini successfully extracted text from {file_path}")
+                return result
+            else:
+                logger.warning(f"Gemini returned empty response for {file_path}")
+                return None
+
+        except Exception as e:
+            logger.error(f"Error in Gemini text extraction: {str(e)}")
+            return None
+
+    def _parse_gemini_response(self, response_text: str) -> Dict:
+        """Parse structured information from Gemini's response"""
+        try:
+            info = {
+                'document_type': None,
+                'application_type': None,
+                'key_fields': {},
+                'numerical_values': {}
+            }
+
+            # Extract document type
+            doc_type_match = re.search(r'Document type:?\s*([^\n]+)', response_text)
+            if doc_type_match:
+                info['document_type'] = doc_type_match.group(1).strip()
+
+            # Extract application type (fresh/renewal)
+            if re.search(r'\bfresh\b', response_text, re.IGNORECASE):
+                info['application_type'] = 'Fresh'
+            elif re.search(r'\brenewal\b', response_text, re.IGNORECASE):
+                info['application_type'] = 'Renewal'
+
+            # Extract key fields (dates, names, IDs)
+            date_matches = re.finditer(r'(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})', response_text)
+            for match in date_matches:
+                info['key_fields']['date'] = match.group(1)
+
+            # Extract numerical values
+            percentage_matches = re.finditer(r'(\d+\.?\d*)%', response_text)
+            for i, match in enumerate(percentage_matches):
+                info['numerical_values'][f'percentage_{i+1}'] = float(match.group(1))
+
+            return info
+
+        except Exception as e:
+            logger.error(f"Error parsing Gemini response: {str(e)}")
+            return {}
+
+    def extract_text_hybrid(self, file_path: str, use_gemini: bool = True) -> Dict:
+        """
+        Extract text using both Tesseract OCR and Gemini for better accuracy.
+        Combines and compares results from both methods.
+        """
+        results = {
+            'text': None,
+            'structured_info': None,
+            'confidence': 0.0,
+            'method_used': None
+        }
+
+        try:
+            # Get Tesseract OCR results
+            ocr_text = self.extract_text_from_file(file_path)
+            ocr_confidence = self._calculate_text_confidence(ocr_text, None) if ocr_text else 0.0
+
+            # Get Gemini results if enabled
+            gemini_result = None
+            if use_gemini:
+                gemini_result = self.extract_text_with_gemini(file_path)
+
+            # Compare and combine results
+            if gemini_result and gemini_result['extracted_text']:
+                gemini_text = gemini_result['extracted_text']
+                gemini_confidence = self._calculate_text_confidence(gemini_text, None)
+
+                # Choose better result or combine them
+                if gemini_confidence > ocr_confidence * 1.2:  # Gemini significantly better
+                    results['text'] = gemini_text
+                    results['structured_info'] = gemini_result['document_info']
+                    results['confidence'] = gemini_confidence
+                    results['method_used'] = 'gemini'
+                else:
+                    # Combine results
+                    combined_text = self._combine_ocr_results([ocr_text, gemini_text])
+                    results['text'] = combined_text
+                    results['structured_info'] = gemini_result['document_info']
+                    results['confidence'] = max(ocr_confidence, gemini_confidence)
+                    results['method_used'] = 'hybrid'
+            else:
+                # Fallback to OCR only
+                results['text'] = ocr_text
+                results['confidence'] = ocr_confidence
+                results['method_used'] = 'ocr'
+
+            return results
+
+        except Exception as e:
+            logger.error(f"Error in hybrid text extraction: {str(e)}")
+            return results
 
     def extract_text_from_file(self, file_path, quality_mode='auto', detect_fresh_renewal=False):
         """Extract text from a file (PDF or image) with enhanced preprocessing."""
@@ -192,36 +342,29 @@ class OCRService:
         return configs.get(strategy_name, '--oem 3 --psm 6')
 
     def _extract_handwritten_text_enhanced(self, preprocessed_image):
+
         """Enhanced extraction for handwritten text with multiple attempts."""
         try:
-            # Multiple OCR attempts with different configurations optimized for handwritten text
-            handwritten_configs = [
-                '--oem 3 --psm 8',  # Single word
-                '--oem 3 --psm 7',  # Single text line
-                '--oem 3 --psm 13', # Raw line
-                '--oem 3 --psm 6',  # Uniform block
-                '--oem 3 --psm 4',  # Single column
-                '--oem 1 --psm 8',  # Legacy engine for handwritten
-                '--oem 1 --psm 7',  # Legacy engine single line
-            ]
-
             best_text = ""
-            best_length = 0
-
+            best_confidence = 0
+            
             for config in handwritten_configs:
                 try:
                     text = pytesseract.image_to_string(preprocessed_image, config=config)
-                    if text and len(text.strip()) > best_length:
+                    confidence = self._calculate_text_confidence(text, preprocessed_image)
+                    
+                    if confidence > best_confidence:
                         best_text = text
-                        best_length = len(text.strip())
+                        best_confidence = confidence
+                        
                 except Exception as e:
-                    logger.debug(f"Handwritten config {config} failed: {str(e)}")
+                    logger.debug(f"Config {config} failed: {str(e)}")
                     continue
-
-            return best_text if best_text else ""
+                    
+            return best_text
 
         except Exception as e:
-            logger.error(f"Error in enhanced handwritten text extraction: {str(e)}")
+            logger.error(f"Handwritten text enhancement failed: {str(e)}")
             return ""
 
     def _calculate_text_confidence(self, text, image):
@@ -630,9 +773,9 @@ class OCRService:
             logger.error(f"Error in rotation detection: {str(e)}")
             return None
 
-    def extract_text_with_rotation_correction(self, file_path, quality_mode='auto'):
+    def extract_text_with_rotation_correction(self, file_path, quality_mode='auto', use_gemini=True):
         """
-        Extract text with automatic rotation correction.
+        Extract text with automatic rotation correction and Gemini integration.
         """
         try:
             logger.info(f"Extracting text with rotation correction: {file_path}")
@@ -641,70 +784,77 @@ class OCRService:
             rotation_result = self.detect_and_correct_rotation(file_path)
 
             if not rotation_result:
-                logger.warning("Rotation detection failed, falling back to standard OCR")
-                return self.extract_text_from_file(file_path, quality_mode)
+                logger.warning("Rotation detection failed, falling back to hybrid extraction")
+                return self.extract_text_hybrid(file_path, use_gemini=use_gemini)
 
             corrected_image = rotation_result['image']
             detected_angle = rotation_result['angle']
 
             logger.info(f"Using rotation-corrected image (rotated {detected_angle}°)")
 
-            # Step 2: Apply enhanced OCR to the corrected image
-            if quality_mode == 'auto':
-                # Smart escalation with rotation-corrected image
+            # Step 2: Try Gemini first if enabled
+            if use_gemini:
+                try:
+                    # Save rotated image temporarily
+                    temp_path = f"{file_path}_rotated.png"
+                    corrected_image.save(temp_path)
+                    
+                    # Use Gemini for text extraction
+                    gemini_result = self.extract_text_with_gemini(temp_path)
+                    
+                    # Clean up temporary file
+                    try:
+                        os.remove(temp_path)
+                    except:
+                        pass
 
+                    if gemini_result and gemini_result['extracted_text']:
+                        logger.info("Successfully extracted text using Gemini")
+                        return {
+                            'text': gemini_result['extracted_text'],
+                            'structured_info': gemini_result['document_info'],
+                            'confidence': 0.9,  # Gemini typically has high confidence
+                            'method_used': 'gemini'
+                        }
+                        
+                except Exception as e:
+                    logger.warning(f"Gemini extraction failed, falling back to OCR: {str(e)}")
+
+            # Step 3: Fallback to enhanced OCR if Gemini fails or is disabled
+            if quality_mode == 'auto':
                 # Try standard OCR first
                 try:
                     text = pytesseract.image_to_string(corrected_image, config='--psm 6')
                     keywords = self._count_important_keywords(text)
 
                     if len(text) > 500 and keywords >= 3:
-                        logger.info(f"Standard OCR sufficient on corrected image: {len(text)} chars, {keywords} keywords")
-                        return self._post_process_text(text)
+                        logger.info(f"Standard OCR sufficient: {len(text)} chars, {keywords} keywords")
+                        return {
+                            'text': self._post_process_text(text),
+                            'confidence': 0.7,
+                            'method_used': 'ocr_standard'
+                        }
                 except:
                     pass
 
                 # Try enhanced preprocessing
                 try:
-                    from app.utils.image_utils import preprocess_image
                     enhanced_image = preprocess_image(corrected_image, quality_level='enhanced')
                     text = pytesseract.image_to_string(enhanced_image, config='--psm 6')
-                    keywords = self._count_important_keywords(text)
-
-                    if len(text) > 300 and keywords >= 2:
-                        logger.info(f"Enhanced OCR sufficient on corrected image: {len(text)} chars, {keywords} keywords")
-                        return self._post_process_text(text)
+                    return {
+                        'text': self._post_process_text(text),
+                        'confidence': 0.6,
+                        'method_used': 'ocr_enhanced'
+                    }
                 except:
                     pass
 
-                # Try small font optimization
-                try:
-                    text = pytesseract.image_to_string(corrected_image, config='--psm 8 -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 ')
-                    logger.info(f"Small font OCR on corrected image: {len(text)} chars")
-                    return self._post_process_text(text)
-                except:
-                    pass
-
-            else:
-                # Direct OCR with specified quality mode
-                if quality_mode == 'enhanced':
-                    from app.utils.image_utils import preprocess_image
-                    processed_image = preprocess_image(corrected_image, quality_level='enhanced')
-                    text = pytesseract.image_to_string(processed_image, config='--psm 6')
-                elif quality_mode == 'small_font':
-                    text = pytesseract.image_to_string(corrected_image, config='--psm 8 -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 ')
-                else:  # fast
-                    text = pytesseract.image_to_string(corrected_image, config='--psm 6')
-
-                return self._post_process_text(text)
-
-            # Fallback to original method if rotation correction doesn't help
-            logger.warning("Rotation correction didn't improve results, using original method")
+            # Fallback to original method if all else fails
+            logger.warning("Advanced methods failed, using basic OCR")
             return self.extract_text_from_file(file_path, quality_mode)
 
         except Exception as e:
-            logger.error(f"Error in rotation-corrected OCR: {str(e)}")
-            # Fallback to original method
+            logger.error(f"Error in rotation-corrected extraction: {str(e)}")
             return self.extract_text_from_file(file_path, quality_mode)
 
     def extract_date_from_upper_right(self, file_path):

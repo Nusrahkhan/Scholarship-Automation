@@ -72,3 +72,15 @@ class Circular(db.Model):
 
     def __repr__(self):
         return f"Circular('{self.title}', '{self.created_at}')"
+    
+# appointments
+class Appointment(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    application_id = db.Column(db.Integer, db.ForeignKey('scholarship_application.id'), nullable=False)
+    slip_data = db.Column(db.LargeBinary)
+    slip_name = db.Column(db.String(255))
+    appointment_date = db.Column(db.Date, nullable=False)
+    time_slot = db.Column(db.String(50), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    scholarship_application = db.relationship('ScholarshipApplication', backref=db.backref('appointments', lazy=True))

@@ -20,7 +20,7 @@ def preprocess_image(image_path, quality_level='auto'):
     try:
         # Open image
         #image = Image.open(image_path)
-        #original_image = image.copy()
+        original_image = image.copy()
 
                 # If input is a path, open the image
         if isinstance(image_path, str):

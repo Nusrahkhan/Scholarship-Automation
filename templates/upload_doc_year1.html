@@ -538,6 +538,45 @@
     </div>
 
     <script>
+                // Document type mapping
+        const documentTypes = {
+            'upload-1': 'registration_form',
+            'upload-2': 'acknowledgment_receipt',
+            'upload-3': 'convener_allotment_order',
+            'upload-4': '10th_marks_memo',
+            'upload-5': 'intermediate_long_memo',
+            'upload-6': 'school_bonafide',
+            'upload-7': 'intermediate_bonafide',
+            'upload-8': 'intermediate_transfer_certificate',
+            'upload-9': 'college_bonafide',
+            'upload-10': 'income_certificate',
+            'upload-11': 'caste_certificate',
+            'upload-12': 'aadhaar',
+            'upload-13': 'bank_passbook',
+            'upload-14': 'ration_card',
+            'upload-15': 'attendance_form'
+        };
+
+        // Function to verify document using OCR
+        async function upload_doc(file, documentType) {
+            const formData = new FormData();
+            formData.append('document', file);
+            formData.append('document_type', documentType);
+    
+            try {
+                const response = await fetch('/upload_doc_year1', {
+                    method: 'POST',
+                    body: formData
+                });
+    
+                const result = await response.json();
+                return result;
+            } catch (error) {
+                console.error('Error:', error);
+                return { success: false, error: 'Verification failed' };
+            }
+        }
+
         // Handle file upload for all upload boxes
         document.querySelectorAll('.upload-box').forEach(uploadBox => {
             const input = uploadBox.querySelector('input[type="file"]');
@@ -545,25 +584,36 @@
             const uploadPreview = uploadBox.querySelector('.upload-preview');
             const fileName = uploadBox.querySelector('.file-name');
             const removeBtn = uploadBox.querySelector('.remove-btn');
+            const checkmark = uploadBox.querySelector('.checkmark');
             
-            // Handle click on the upload box
-            uploadBox.addEventListener('click', (e) => {
-                if (e.target !== input && e.target !== removeBtn) {
-                    input.click();
-                }
-            });
-            
-            // Handle file selection
-            input.addEventListener('change', (e) => {
+            // Handle file selection with OCR verification
+            input.addEventListener('change', async (e) => {
                 if (input.files.length) {
                     const file = input.files[0];
-                    fileName.textContent = file.name;
+                    const docType = documentTypes[uploadBox.id];
+
+                    // Show loading state
+                    fileName.textContent = 'Verifying document...';
                     uploadContent.classList.add('hidden');
                     uploadPreview.classList.remove('hidden');
                     uploadBox.classList.add('active');
+
+                    // Verify document
+                    const result = await upload_doc(file, docType);
+                    
+                    if (result.success) {
+                        fileName.textContent = file.name;
+                        checkmark.style.color = '#4cad69'; // Green for success
+                        uploadBox.dataset.verified = 'true';
+                    } else {
+                        fileName.textContent = `${file.name} (Verification Failed)`;
+                        checkmark.style.color = '#dc2626'; // Red for failure
+                        uploadBox.dataset.verified = 'false';
+                    }
                 }
             });
-            
+
+              
             // Handle drag and drop
             ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
                 uploadBox.addEventListener(eventName, (e) => {
@@ -594,23 +644,25 @@
                 }
             });
             
-            // Handle remove button
+            // Update remove button handler
             removeBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                input.value = '';
-                uploadContent.classList.remove('hidden');
-                uploadPreview.classList.add('hidden');
-                uploadBox.classList.remove('active');
+                    e.stopPropagation();
+                    input.value = '';
+                    uploadContent.classList.remove('hidden');
+                    uploadPreview.classList.add('hidden');
+                    uploadBox.classList.remove('active');
+                    uploadBox.dataset.verified = 'false';
+                    checkmark.style.color = '#6c2c4c'; // Reset color
+                });
             });
-        });
         
         // Handle submit button
         document.querySelector('.submit-btn').addEventListener('click', () => {
             const uploadedFiles = document.querySelectorAll('.upload-preview:not(.hidden)');
-            if (uploadedFiles.length === 14) {
+            if (uploadedFiles.length === 15) {
                 alert('All documents uploaded successfully! Your submission is being processed.');
             } else {
-                alert(`Please upload all 14 required documents. You've uploaded ${uploadedFiles.length} of 14.`);
+                alert(`Please upload all 15 required documents. You've uploaded ${uploadedFiles.length} of 15.`);
             }
         });
     </script>

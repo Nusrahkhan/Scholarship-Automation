@@ -13,12 +13,13 @@ from models import db, Student, Admin, Teacher, TeacherUnavailability, Scholarsh
 import sys
 import os
 
+
 # Add OCR model to Python path
 ocr_model_path = os.path.join(os.path.dirname(__file__), 'ocr_model')
 sys.path.append(ocr_model_path)
 
-from app.services.ocr_service import OCRService
-from app.services.validation_service import ValidationService
+from ocr_model.app.services.ocr_service import OCRService
+from ocr_model.app.services.validation_service import ValidationService
 
 # Initialize services
 ocr_service = OCRService()
@@ -427,8 +428,7 @@ def login():
     # Fallback
     return redirect(url_for('index'))
 
-
-# ye idk
+# API route to get user data
 @app.route('/api/user')
 def get_user_data():
     # Check if user is logged in
@@ -454,7 +454,7 @@ def get_user_data():
         'user_type': session.get('user_type', 'unknown')
     })
 
-
+# faculty dashboard routes
 # Time table insertion
 @app.route('/upload_timetable', methods=['POST'])
 def upload_timetable():
@@ -617,7 +617,7 @@ def get_timetable(teacher_id):
     response.headers['Content-Disposition'] = f'inline; filename={teacher.time_table_filename}'
     return response
 
-# API route to get available teachers
+# route to get available teachers
 @app.route('/available_teachers', methods=['GET'])
 def available_teachers():
     """Handle both API and view requests for available teachers"""
@@ -663,8 +663,7 @@ def available_teachers():
                             teachers=available_teachers,
                             selected_date=selected_date)
 
-
-
+# Document upload routes
 @app.route('/upload_doc', methods=['GET', 'POST'])
 def upload_doc():
     if 'user_id' not in session or session.get('user_type') != 'student':
@@ -726,6 +725,185 @@ def upload_doc():
     except Exception as e:
         print(f"Error verifying document: {str(e)}")
         return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/upload_doc_year1', methods=['GET', 'POST'])
+def upload_doc_year1():
+    if 'user_id' not in session or session.get('user_type') != 'student':
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    if request.method == 'GET':
+        # Render the upload form page
+        return render_template('upload_doc_year1.html')
+    
+    try:
+        if 'document' not in request.files:
+            return jsonify({'error': 'No document provided'}), 400
+            
+        file = request.files['document']
+        document_type = request.form.get('document_type')
+        
+        if not file or file.filename == '':
+            return jsonify({'error': 'No file selected'}), 400
+            
+        if not document_type:
+            return jsonify({'error': 'Document type not specified'}), 400
+            
+        # Process the document using OCR
+        result = process_document_upload(file, document_type)
+        print(result)
+        approved = False
+        if isinstance(result, dict):
+            # Check both 'status' and 'validation' keys for 'approved'
+            for key in ['status']:
+                value = result.get(key)
+                if value and 'approved' in str(value).lower():
+                    approved = True
+                    break
+        elif isinstance(result, str):
+            if 'approved' in result.lower():
+                approved = True
+
+        if approved:
+            return jsonify({
+                'success': True,
+                'message': 'Document verified successfully',
+                'validation': result
+            })
+        else:
+            result_text = str(result)
+
+        if result_text and 'approved' in result_text.lower():
+            return jsonify({
+                'success': True,
+                'message': 'Document verified successfully',
+                'validation': result
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'Document verification failed'
+            }), 400
+            
+    except Exception as e:
+        print(f"Error verifying document: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+# appointment routes
+@app.route('/book_appointment', methods=['POST'])
+def book_appointment():
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'error': 'Unauthorized'}), 401
+
+    # Check if application exists
+    application = ScholarshipApplication.query.filter_by(id=application_id).first()
+    if not application:
+        return jsonify({'success': False, 'error': 'Invalid application ID'}), 404
+    
+    # Get form data
+    application_id = request.form.get('application_id')
+    appointment_date = request.form.get('appointment_date')
+    time_slot = request.form.get('time_slot')
+    slip_file = request.files.get('slip')
+
+    # Validate input
+    if not all([appointment_date, time_slot, slip_file]):
+        return jsonify({'success': False, 'error': 'Missing required fields'}), 400
+    
+    # OCR and validate slip
+    # Save slip temporarily
+    temp_path = os.path.join(app.config['UPLOAD_FOLDER'], secure_filename(slip_file.filename))
+    slip_file.save(temp_path)
+    try:
+        text = ocr_service.extract_text_with_rotation_correction(temp_path)
+        validation_result = validation_service.validate_document(text, 'meeseva_slip')
+    finally:
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
+
+    # Check validation result
+    approved = False
+        # Check validation result (status key only)
+    status = validation_result.get('status', '').lower() if isinstance(validation_result, dict) else ''
+    if 'approved' not in status:
+        return jsonify({'success': False, 'error': 'Meeseva slip verification failed', 'details': validation_result}), 400
+    
+    # Prevent double booking for the same application and slot
+    existing = appointment.query.filter_by(
+        application_id=application_id,
+        appointment_date=datetime.strptime(appointment_date, "%Y-%m-%d").date(),
+        time_slot=time_slot
+    ).first()
+    if existing:
+        return jsonify({'success': False, 'error': 'This slot is already booked for your application.'}), 409
+
+
+    # Save slip data as binary
+    slip_file.seek(0)
+    slip_data = slip_file.read()
+    slip_name = slip_file.filename
+
+    # Create appointment
+    appointment = appointment(
+        application_id=application_id,
+        slip_data=slip_data,
+        slip_name=slip_name,
+        appointment_date=datetime.strptime(appointment_date, "%Y-%m-%d").date(),
+        time_slot=time_slot
+    )
+    db.session.add(appointment)
+    db.session.commit()
+
+    return jsonify({'success': True, 'message': 'Appointment booked successfully.'}), 200
+
+# Appointment page route
+@app.route('/appointment', methods=['GET'])
+def appointment_page():
+    if 'user_id' not in session or session.get('user_type') != 'student':
+        return redirect(url_for('login'))
+    return render_template('appointment.html')
+
+
+
+@app.route('/previous-applications')
+def previous_applications():
+    """Display list of previous scholarship applications for the logged-in user."""
+    try:
+        # Check if user is logged in and is a student
+        if 'user_id' not in session or session.get('user_type') != 'student':
+            return redirect(url_for('login'))
+
+        # Get current user's email from session
+        student = Student.query.get(session['user_id'])
+        if not student:
+            return redirect(url_for('login'))
+
+        # Extract roll number from email
+        roll_number = student.email.split('@')[0]
+
+        # Query all applications for this roll number
+        applications = ScholarshipApplication.query\
+            .filter_by(roll_number=roll_number)\
+            .order_by(ScholarshipApplication.created_at.desc())\
+            .all()
+
+        # Format application data for display
+        formatted_applications = [{
+            'application_id': app.id,
+            'roll_number': app.roll_number,
+            'branch': app.branch,
+            'year': app.year,
+            'status': app.scholarship_state,
+            'applied_date': app.created_at.strftime('%d-%m-%Y'),
+            'is_lateral_entry': app.lateral_entry
+        } for app in applications]
+
+        return render_template('previous_applications.html', 
+                             applications=formatted_applications,
+                             student_name=student.username)
+
+    except Exception as e:
+
+        return redirect(url_for('student_dashboard'))
 
 # logout     
 @app.route('/logout')
