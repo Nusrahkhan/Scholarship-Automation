@@ -92,6 +92,45 @@ def process_document_upload(file, document_type):
             return None
     return None
 
+# check all documents are verified or not
+def check_all_documents_verified(student_id):
+    """Check if all required documents are verified for the student's latest application."""
+    try:
+        # Get student info
+        student = Student.query.get(student_id)
+        if not student:
+            return False, "Student not found"
+
+        # Get latest scholarship application
+        latest_application = ScholarshipApplication.query\
+            .filter_by(roll_number=student.roll_number)\
+            .order_by(ScholarshipApplication.created_at.desc())\
+            .first()
+            
+        if not latest_application:
+            return False, "No active application found"
+
+        # Get required documents based on student category and year
+        required_docs = validation_service.get_required_documents(
+            student_category = student.category,
+            course_year=latest_application.year
+        )
+
+        # Check verification status from session
+        verified_docs = session.get('verified_documents', [])
+        
+        # Calculate verification status
+        missing_docs = [doc for doc in required_docs if doc not in verified_docs]
+        
+        if not missing_docs:
+            return True, "All documents verified"
+        else:
+            return False, f"Missing documents: {', '.join(missing_docs)}"
+
+    except Exception as e:
+        print(f"Error checking document verification: {str(e)}")
+        return False, "Error checking verification status"
+
 # Signup Routes for Student, Teacher, and Admin
 
 # Database connection helper
@@ -410,23 +449,6 @@ def login():
         'redirect': '/student_dashboard'
     })
 
-# student dashboard route
-
-
-    # Check if user is logged in
-    if 'user_id' not in session:
-        return redirect(url_for('index'))
-
-    # Render dashboard based on user type
-    if session.get('user_type') == 'student':
-        return redirect(url_for('student_dashboard'))
-    elif session.get('user_type') == 'admin':
-        return render_template('admin_dashboard.html', username=session.get('username', 'Admin'))
-    elif session.get('user_type') == 'teacher':
-        return render_template('teacher_dashboard.html', username=session.get('username', 'Teacher'))
-
-    # Fallback
-    return redirect(url_for('index'))
 
 # API route to get user data
 @app.route('/api/user')
@@ -522,7 +544,7 @@ def save_unavailability():
         db.session.rollback()
         return jsonify({'error': str(e)}), 500
 
-# circular routes
+# circular(notifications from admins) routes
 @app.route('/upload_circular', methods=['POST'])
 def upload_circular():
     if 'admin_id' not in session:
@@ -690,27 +712,16 @@ def upload_doc():
         result = process_document_upload(file, document_type)
         print(result)
         approved = False
-        if isinstance(result, dict):
-            # Check both 'status' and 'validation' keys for 'approved'
-            for key in ['status']:
-                value = result.get(key)
-                if value and 'approved' in str(value).lower():
-                    approved = True
-                    break
-        elif isinstance(result, str):
-            if 'approved' in result.lower():
-                approved = True
+        if isinstance(result, dict) and result.get('status') == 'approved':
+            # Initialize verified_documents in session if not exists
+            if 'verified_documents' not in session:
+                session['verified_documents'] = []
 
-        if approved:
-            return jsonify({
-                'success': True,
-                'message': 'Document verified successfully',
-                'validation': result
-            })
-        else:
-            result_text = str(result)
+            # Add document type to verified list if not already present
+            if document_type not in session['verified_documents']:
+                session['verified_documents'].append(document_type)
+                session.modified = True
 
-        if result_text and 'approved' in result_text.lower():
             return jsonify({
                 'success': True,
                 'message': 'Document verified successfully',
@@ -788,6 +799,19 @@ def upload_doc_year1():
         print(f"Error verifying document: {str(e)}")
         return jsonify({'error': 'Internal server error'}), 500
 
+
+@app.route('/check_documents_status')
+def check_documents_status():
+    """API endpoint to check document verification status."""
+    if 'user_id' not in session or session.get('user_type') != 'student':
+        return jsonify({'verified': False, 'message': 'Unauthorized'}), 401
+
+    verified, message = check_all_documents_verified(session['user_id'])
+    return jsonify({
+        'verified': verified,
+        'message': message
+    })
+
 # appointment routes
 @app.route('/book_appointment', methods=['POST'])
 def book_appointment():
@@ -864,7 +888,7 @@ def appointment_page():
 
 
 
-@app.route('/previous-applications')
+@app.route('/previous_applications')
 def previous_applications():
     """Display list of previous scholarship applications for the logged-in user."""
     try:
