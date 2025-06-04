@@ -224,9 +224,9 @@
                         0
                     </span>
                 </button>
-                <li class="nav-item mx-4 mb-2 p-3 flex items-center space-x-3 cursor-pointer">
-                    <i class="fas fa-cog w-6 text-center text-gray-600"></i>
-                    <span class="text-gray-700">Settings</span>
+                <li class="nav-item mx-4 mb-2 p-3 flex items-center space-x-3 cursor-pointer hover:bg-red-50" onclick="window.location.href='/logout'">
+                    <i class="fas fa-sign-out-alt w-6 text-center text-gray-600"></i>
+                    <span class="text-gray-600">Logout</span>
                 </li>
             </ul>
         </nav>
@@ -439,19 +439,6 @@
                             navItems.forEach(i => i.classList.remove('active'));
                             this.classList.add('active');
                         });
-                    });
-                    
-                    // Add logout functionality
-                    const logoutBtn = document.createElement('li');
-                    logoutBtn.className = 'nav-item mx-3 mb-2 p-2 flex items-center space-x-3 cursor-pointer rounded-lg';
-                    logoutBtn.innerHTML = `
-                        <i class="fas fa-sign-out-alt w-5 text-center text-gray-600"></i>
-                        <span class="text-gray-700">Logout</span>
-                    `;
-                    document.querySelector('.sidebar nav ul').appendChild(logoutBtn);
-                    
-                    logoutBtn.addEventListener('click', function() {
-                        window.location.href = '/logout';
                     });
                     
                     // Initialize sidebar toggle

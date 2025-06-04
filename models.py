@@ -19,7 +19,7 @@ class Admin(db.Model):
     password = db.Column(db.String(80), unique=True, nullable=False)
 
     def __repr__(self) -> str:
-        return f"Admin('{self.username}')"
+        return f"Admin('{self.user_id}')"
 
 class Teacher(db.Model):
     user_id = db.Column(db.Integer, primary_key=True, autoincrement=True)

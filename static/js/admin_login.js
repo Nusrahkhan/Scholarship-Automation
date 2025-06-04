@@ -24,16 +24,18 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Form validation
     const form = document.querySelector('form');
+    form.id = 'loginForm';
     form.addEventListener('submit', function(e) {
         e.preventDefault();
-        const user_id = document.getElementById('user_id').value;
+        const user_id = document.getElementById('user_id').value; 
         const password = document.getElementById('password').value;
-        
+
         if (!user_id || !password) {
             alert('Please fill in all fields');
             return;
         }
         
+        // Here you would typically send the data to a server
         // Send login request to server
         fetch('/admin_login', {
             method: 'POST',

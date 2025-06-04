@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - Scholarship Applications</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <!-- Header -->
+        <div class="mb-8">
+            <h1 class="text-2xl font-bold text-gray-800">Scholarship Applications</h1>
+            <p class="text-gray-600">Manage and review student applications</p>
+        </div>
+
+        <!-- Filters -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+            <h2 class="text-lg font-semibold mb-4">Filters</h2>
+            <form id="filterForm" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <!-- Branch Filter -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Branch</label>
+                    <select name="branch" class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500">
+                        <option value="All Branches">All Branches</option>
+                        {% for branch in branches %}
+                        <option value="{{ branch }}" {% if current_filters.branch == branch %}selected{% endif %}>
+                            {{ branch }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Year Filter -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Course Year</label>
+                    <select name="year" class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500">
+                        <option value="All Years">All Years</option>
+                        {% for year in years %}
+                            <option value="{{ year }}" {% if current_filters.year|string == year|string %}selected{% endif %}>
+                                Year {{ year }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Status Filter -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Status</label>
+                    <select name="scholarship_state" class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500">
+                        <option value="All Statuses">All Statuses</option>
+                        {% for status in statuses %}
+                        <option value="{{ status }}" {% if current_filters.status == status %}selected{% endif %}>
+                            {{ status|title }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Entry Type Filter -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Academic Year</label>
+                    <select name="academic_year" class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500">
+                        <option value="All Years">All Years</option>
+                        {% for year in academic_years %}
+                        <option value="{{ year }}" {% if current_filters.academic_year|string == year|string %}selected{% endif %}>
+                            {{ year }}-{{ year + 1 }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </form>
+        </div>
+
+        <!-- Applications Table -->
+        <div class="bg-white rounded-lg shadow-md overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Roll Number</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student Name</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Branch</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Year</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Applied Date</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        {% for app in applications %}
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                {{ app.roll_number }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {{ app.student_name }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {{ app.branch }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {{ app.year }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full
+                                    {% if app.scholarship_state == 'started' %}bg-green-100 text-green-800
+                                    {% elif app.scholarship_state == 'documents_verified' %}bg-yellow-100 text-yellow-800
+                                    {% elif app.scholarship_state == 'appointment_booked' %}bg-red-100 text-red-800
+                                    {% else %}bg-blue-100 text-blue-800{% endif %}">
+                                    {{ app.scholarship_state|title }}
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {{ app.created_at.strftime('%Y-%m-%d') }}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Auto-submit form when filters change
+        document.querySelectorAll('#filterForm select').forEach(select => {
+            select.addEventListener('change', () => {
+                document.getElementById('filterForm').submit();
+            });
+        });
+    document.addEventListener('DOMContentLoaded', function() {
+        document.querySelectorAll('#filterForm select').forEach(select => {
+            select.addEventListener('change', function() {
+                let url = new URL(window.location.href);
+            
+                // Clear existing parameters if "All" is selected
+                if (this.value === 'All Years' || 
+                    this.value === 'All Branches' || 
+                    this.value === 'All Statuses') {
+                    url.searchParams.delete(this.name);
+                } else {
+                    url.searchParams.set(this.name, this.value);
+                }
+            
+                // Redirect to the filtered URL
+                window.location.href = url.toString();
+            });
+        });
+
+    // Debug log current filters
+    console.log('Current filters:', {
+        branch: '{{ current_filters.branch }}',
+        year: '{{ current_filters.year }}',
+        status: '{{ current_filters.status }}',
+        academic_year: '{{ current_filters.academic_year }}'
+    });
+});
+    </script>
+</body>
+</html>

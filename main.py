@@ -12,6 +12,7 @@ import random
 from models import db, Student, Admin, Teacher, TeacherUnavailability, ScholarshipApplication, OTP, Circular
 import sys
 import os
+from sqlalchemy import distinct, extract, desc, func
 
 
 # Add OCR model to Python path
@@ -323,27 +324,37 @@ def admin_login():
     if request.method == 'GET':
         return render_template('admin_login.html')
 
-    data = request.json
+    data = request.get_json()
     user_id = data.get('user_id')
     password = data.get('password')
+    print (f"idarrr {password} {user_id}")
+
+    if not user_id or not password:
+        return jsonify({'error': 'Missing credentials'}), 400
+
 
     #Find admin by user_id
     admin = Admin.query.filter_by(user_id=user_id).first()
+    print(f"admin found: {admin}")
 
     if not admin:
         return jsonify({'error': 'Invalid admin ID'}), 400
-        
+
     if admin.password != password:
         return jsonify({"error": "Invalid password"}), 401
 
     # 3. Create admin session
     session['admin_id'] = admin.user_id
     session['user_type'] = 'admin'
-    session['admin_username'] = admin.user_id
+    session['username'] = admin.user_id
     
+    
+    #session.modified = True
+
     return jsonify({
         "message": "Login successful",
-        "username": admin.user_id
+        "success": True,
+        "redirect": "/admin_dashboard",
     }), 200
 
 # faculty login
@@ -390,10 +401,41 @@ def faculty_dashboard():
 #admin dashboard route
 @app.route('/admin_dashboard')
 def admin_dashboard():
-    if 'admin_id' not in session:
-        return redirect(url_for('index'))
+    if 'admin_id' not in session or session.get('user_type') != 'admin':
+        return redirect(url_for('admin_login'))
 
-    return render_template('admin_dashboard.html', username=session.get('username'))
+    try:
+        # Get statistics
+        total_applications = ScholarshipApplication.query.count()
+        pending_applications = ScholarshipApplication.query.filter_by(scholarship_state='pending').count()
+        
+        # Get today's approved applications
+        today = datetime.now().date()
+        approved_today = ScholarshipApplication.query\
+            .filter(
+                ScholarshipApplication.scholarship_state == 'approved',
+                func.date(ScholarshipApplication.created_at) == today
+            ).count()
+
+        # Get recent applications
+        recent_applications = ScholarshipApplication.query\
+            .order_by(ScholarshipApplication.created_at.desc())\
+            .limit(5)\
+            .all()
+
+        return render_template(
+            'admin_dashboard.html',
+            username=session.get('admin_id'),
+            total_applications=total_applications,
+            pending_applications=pending_applications,
+            approved_today=approved_today,
+            recent_applications=recent_applications
+        )
+
+    except Exception as e:
+        print(f"Error loading admin dashboard: {str(e)}")
+        return redirect(url_for('admin_login'))
+    
 
 #student dashboard route
 @app.route('/student_dashboard')
@@ -1002,6 +1044,114 @@ def list_of_doc():
     # Render the document list page
     return render_template('list_of_doc.html')
 
+# ADMIN ROUTES HERE
+
+# displaying all applications
+@app.route('/applications_list')
+def applic():
+    print("Session:", dict(session))
+    if 'admin_id' not in session or session.get('user_type') != 'admin':
+        return redirect(url_for('admin_login'))
+
+    try:
+        # Get filter parameters
+        branch = request.args.get('branch', 'All Branches')
+        course_year = request.args.get('year', 'All Years')
+        status = request.args.get('scholarship_state', 'All Statuses')
+        academic_year = request.args.get('academic_year', 'All Years')
+
+        print(f"Applied filters - branch: {branch}, year: {course_year}, status: {status}, academic_year: {academic_year}")
+
+
+        # Base query with join
+        query = ScholarshipApplication.query
+
+        # Apply filters safely
+        if branch and branch != 'All Branches':
+            query = query.filter(ScholarshipApplication.branch == branch)
+        if status and status != 'All Statuses':
+            query = query.filter(ScholarshipApplication.scholarship_state == status)
+        if course_year and course_year != 'All Years' and course_year.isdigit():
+            query = query.filter(ScholarshipApplication.year == course_year)
+        if academic_year and academic_year != 'All Years':
+            try:
+                year_int = int(academic_year)
+                query = query.filter(extract('year', ScholarshipApplication.created_at) == year_int)
+            except ValueError:
+                print(f"Invalid academic year value: {academic_year}")
+
+        applications_data = []
+        raw_applications = query.order_by(ScholarshipApplication.created_at.desc()).all()
+
+        for application in raw_applications:
+            student = Student.query.filter(Student.email.like(f"{application.roll_number}%")).first()
+            if student:
+                applications_data.append({
+                    'id': application.id,
+                    'roll_number': application.roll_number,
+                    'branch': application.branch,
+                    'year': application.year,
+                    'scholarship_state': application.scholarship_state,
+                    'created_at': application.created_at,
+                    'student_name': student.username,
+                    'student_email': student.email
+                })
+
+        print(f"Processed {len(applications_data)} applications with student data")
+
+
+        branches = [
+            'CSE', 
+            'IT', 
+            'ECE', 
+            'EEE', 
+            'Mech',
+            'AIML',
+            'AIDS',
+            'CSE(DS)',
+            'CSAI',
+            'Civil'
+        ]
+
+        course_years = [1, 2, 3, 4]
+
+        # Get academic years from created_at column
+        academic_years_query = db.session.query(
+            extract('year', ScholarshipApplication.created_at).label('year')
+        ).filter(
+            ScholarshipApplication.created_at.isnot(None)
+        ).distinct()
+
+        academic_years = sorted(set(
+            int(year[0]) for year in academic_years_query.all()
+            if year[0] is not None
+        ), reverse=True) or [datetime.now().year]
+
+        # Get applications with ordering
+        #applications = query.order_by(ScholarshipApplication.created_at.desc()).all()
+
+        print(f"Found {len(applications_data)} applications")  # Debug log
+
+        return render_template(
+            'applications_list.html',
+            applications=applications_data,
+            branches=branches, 
+            years=course_years,  
+            academic_years=academic_years,  # Convert to int and filter None
+            statuses=['started', 'documents_verified', 'appointment_booked', 'completed'],
+            current_filters={
+                'branch': branch,
+                'year': course_year,
+                'status': status,
+                'academic_year': academic_year
+            }
+        )
+
+    except Exception as e:
+        print(f"Error loading admin applications: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return redirect(url_for('admin_dashboard'))
 
 if __name__ == '__main__':
     app.run(debug = True, port = 8000)

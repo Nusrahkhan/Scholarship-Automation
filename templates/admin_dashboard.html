@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-gray-50">
+    <!-- Sidebar -->
+    <div class="sidebar fixed h-full w-64 bg-white shadow-lg">
+        <!-- Profile Section -->
+        <div class="p-6 border-b">
+            <h2 class="text-xl font-semibold text-gray-800">Admin Dashboard</h2>
+            <p class="text-sm text-gray-500">Welcome, {{ username }}</p>
+        </div>
+
+        <!-- Navigation -->
+        <nav class="mt-6">
+            <ul>
+                <li class="nav-item mx-4 mb-2 p-3 flex items-center space-x-3 cursor-pointer hover:bg-gray-100">
+                    <i class="fas fa-home w-6 text-center text-gray-600"></i>
+                    <span class="text-gray-700">Dashboard</span>
+                </li>
+
+            <li onclick="window.location.href='/applications_list'" 
+                class="nav-item mx-4 mb-2 p-3 flex items-center space-x-3 cursor-pointer hover:bg-gray-100">
+                <i class="fas fa-list-alt w-6 text-center text-gray-600"></i>
+                <span class="text-gray-700">Applications</span>
+            </li>
+
+                <li onclick="openCircularModal()" 
+                    class="nav-item mx-4 mb-2 p-3 flex items-center space-x-3 cursor-pointer hover:bg-gray-100">
+                    <i class="fas fa-bullhorn w-6 text-center text-gray-600"></i>
+                    <span class="text-gray-700">Upload Circular</span>
+                </li>
+
+                <li onclick="window.location.href='/logout'" 
+                    class="nav-item mx-4 mb-2 p-3 flex items-center space-x-3 cursor-pointer hover:bg-red-50">
+                    <i class="fas fa-sign-out-alt w-6 text-center text-gray-600"></i>
+                    <span class="text-gray-600">Logout</span>
+                </li>
+            </ul>
+        </nav>
+    </div>
+
+    <!-- Main Content -->
+    <div class="ml-64 p-8">
+        <!-- Stats Overview -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div class="bg-white rounded-xl shadow-md p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-gray-500">Total Applications</p>
+                        <h3 class="text-2xl font-bold text-gray-800">{{ total_applications|default(0) }}</h3>
+                    </div>
+                    <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                        <i class="fas fa-file-alt text-blue-600"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-md p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-gray-500">Pending Review</p>
+                        <h3 class="text-2xl font-bold text-gray-800">{{ pending_applications|default(0) }}</h3>
+                    </div>
+                    <div class="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center">
+                        <i class="fas fa-clock text-yellow-600"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-md p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-gray-500">Approved Today</p>
+                        <h3 class="text-2xl font-bold text-gray-800">{{ approved_today|default(0) }}</h3>
+                    </div>
+                    <div class="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+                        <i class="fas fa-check text-green-600"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Applications -->
+        <div class="bg-white rounded-xl shadow-md overflow-hidden">
+            <div class="p-6 border-b border-gray-200">
+                <h2 class="text-xl font-semibold text-gray-800">Recent Applications</h2>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Roll Number</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Branch</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Year</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Applied Date</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        {% for application in recent_applications|default([]) %}
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                {{ application.roll_number }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {{ application.branch }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {{ application.year }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                    {% if application.status == 'approved' %}bg-green-100 text-green-800
+                                    {% elif application.status == 'pending' %}bg-yellow-100 text-yellow-800
+                                    {% else %}bg-red-100 text-red-800{% endif %}">
+                                    {{ application.status|title }}
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {{ application.created_at.strftime('%Y-%m-%d') }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                <a href="#" class="text-indigo-600 hover:text-indigo-900">View Details</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Upload Circular Modal -->
+    <div id="circularModal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center">
+        <div class="bg-white rounded-lg p-8 max-w-md w-full">
+            <h3 class="text-xl font-semibold mb-4">Upload Circular</h3>
+            <form id="circularForm" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Title</label>
+                    <input type="text" name="title" required
+                           class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Description</label>
+                    <textarea name="description" rows="3"
+                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm"></textarea>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Attachment (optional)</label>
+                    <input type="file" name="circular_file"
+                           class="mt-1 block w-full text-sm text-gray-500
+                                  file:mr-4 file:py-2 file:px-4
+                                  file:rounded-full file:border-0
+                                  file:text-sm file:font-semibold
+                                  file:bg-violet-50 file:text-violet-700
+                                  hover:file:bg-violet-100">
+                </div>
+                <div class="flex justify-end space-x-3">
+                    <button type="button" onclick="closeCircularModal()"
+                            class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200">
+                        Cancel
+                    </button>
+                    <button type="submit"
+                            class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700">
+                        Upload
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        function openCircularModal() {
+            document.getElementById('circularModal').classList.remove('hidden');
+        }
+
+        function closeCircularModal() {
+            document.getElementById('circularModal').classList.add('hidden');
+        }
+
+        // Handle circular form submission
+        document.getElementById('circularForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            
+            try {
+                const response = await fetch('/upload_circular', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    alert('Circular uploaded successfully');
+                    closeCircularModal();
+                } else {
+                    alert(result.error || 'Failed to upload circular');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error uploading circular');
+            }
+        });
+    </script>
+</body>
+</html>
