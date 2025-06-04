@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document Upload Portal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+        
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-image: url('https://i.pinimg.com/736x/9b/72/fe/9b72fefd7d30c006da5f4ec2e93662cb.jpg');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .main-container {
+            background-color: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            box-shadow: 0 10px 30px -15px rgba(142, 125, 190, 0.2);
+            border-radius: 20px;
+            padding: 1.5rem;
+            max-width: 1100px;
+            max-height: 90vh;
+        }
+        
+        .upload-box {
+            border: 2px dashed #5ccece;
+            transition: all 0.3s ease;
+        }
+        
+        .upload-box:hover {
+            border-color: #4cad69;
+            box-shadow: 0 5px 15px rgba(166, 214, 214, 0.2);
+        }
+        
+        .upload-box.active {
+            border-color: #6c2c4c;
+            background-color: rgba(166, 214, 214, 0.1);
+        }
+        
+        .submit-btn {
+            background-color: #6c2c4c;
+            transition: all 0.3s ease;
+        }
+        
+        .submit-btn:hover {
+            background-color: #6c2c4c;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(142, 125, 190, 0.3);
+        }
+        
+        .document-list {
+            max-height: 60vh;
+            overflow-y: auto;
+            scrollbar-width: thin;
+            scrollbar-color: #6c2c4c transparent;
+            padding-right: 15px;
+        }
+        
+        .document-list::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        .document-list::-webkit-scrollbar-track {
+            background: transparent;
+            border-radius: 15px;
+            margin: 5px;
+        }
+        
+        .document-list::-webkit-scrollbar-thumb {
+            background-color: #0d0a0a;
+            border-radius: 15px;
+            border: 2px solid transparent;
+            background-clip: padding-box;
+        }
+        
+        .checkmark {
+            color: #6c2c4c;
+        }
+        
+        .remove-btn {
+            color: #F7CFD8;
+            background-color: #6c2c4c;
+            transition: all 0.2s ease;
+        }
+        
+        .remove-btn:hover {
+            background-color: #6c2c4c;
+        }
+        
+        /* Ensure upload boxes have enough space */
+        .document-item {
+            padding-right: 5px; /* Small padding to ensure content doesn't touch the edge */
+        }
+        
+        /* Reduce spacing and font sizes */
+        h1 {
+            font-size: 1.75rem !important;
+            margin-bottom: 0.5rem !important;
+        }
+        
+        p {
+            font-size: 0.875rem !important;
+            margin-bottom: 0.75rem !important;
+        }
+        
+        .upload-box {
+            padding: 0.75rem !important;
+        }
+        
+        .document-item {
+            padding-right: 5px;
+        }
+        
+        label {
+            font-size: 0.875rem !important;
+            margin-bottom: 0.25rem !important;
+        }
+        
+        .grid {
+            gap: 0.75rem !important;
+        }
+        
+        .space-y-6 > * + * {
+            margin-top: 0.75rem !important;
+        }
+        
+        .submit-btn {
+            padding: 0.5rem 1.5rem !important;
+            font-size: 1rem !important;
+        }
+        
+        .mb-8 {
+            margin-bottom: 1rem !important;
+        }
+        
+        .mt-8 {
+            margin-top: 1rem !important;
+        }
+    </style>
+</head>
+<body class="min-h-screen p-2">
+    <!-- Main Container with translucent effect -->
+    <div class="main-container w-full max-w-4xl mx-auto">
+        <!-- Header -->
+        <div class="text-center mb-4">
+            <h1 class="text-2xl font-bold text-[#6c2c4c] mb-1">Upload Your Documents</h1>
+            <p class="text-gray-600 text-sm">Please upload each document in its designated section</p>
+        </div>
+        
+        <!-- Document Upload Grid -->
+        <div class="document-list space-y-3 pr-3">
+            <!-- Row 1 -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Document 1 -->
+                <div class="document-item">
+                    <label class="block text-[#6c2c4c] font-medium mb-2">1. Application Form</label>
+                    <div class="upload-box relative rounded-lg p-6 text-center cursor-pointer" id="upload-1">
+                        <div class="upload-content">
+                            <i class="fas fa-cloud-upload-alt text-3xl text-[#5ccece] mb-3"></i>
+                            <p class="text-gray-500">Drag & Drop or Click to Upload</p>
+                            <p class="text-xs text-gray-400 mt-1">PDF, JPG, or PNG (Max 5MB)</p>
+                        </div>
+                        <div class="upload-preview hidden items-center justify-between mt-3">
+                            <div class="flex items-center">
+                                <i class="fas fa-file-alt text-[#8E7DBE] mr-2"></i>
+                                <span class="file-name text-gray-700"></span>
+                            </div>
+                            <div class="flex items-center">
+                                <i class="fas fa-check checkmark mr-2"></i>
+                                <button class="remove-btn text-xs px-2 py-1 rounded">Remove</button>
+                            </div>
+                        </div>
+                        <input type="file" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" accept=".pdf,.jpg,.jpeg,.png">
+                    </div>
+                </div>
+                
+                <!-- Document 2 -->
+                <div class="document-item">
+                    <label class="block text-[#6c2c4c] font-medium mb-2">2. Income certificate of Last Year</label>
+                    <div class="upload-box relative rounded-lg p-6 text-center cursor-pointer" id="upload-2">
+                        <div class="upload-content">
+                            <i class="fas fa-cloud-upload-alt text-3xl text-[#5ccece] mb-3"></i>
+                            <p class="text-gray-500">Drag & Drop or Click to Upload</p>
+                            <p class="text-xs text-gray-400 mt-1">PDF, JPG, or PNG (Max 5MB)</p>
+                        </div>
+                        <div class="upload-preview hidden items-center justify-between mt-3">
+                            <div class="flex items-center">
+                                <i class="fas fa-file-alt text-[#8E7DBE] mr-2"></i>
+                                <span class="file-name text-gray-700"></span>
+                            </div>
+                            <div class="flex items-center">
+                                <i class="fas fa-check checkmark mr-2"></i>
+                                <button class="remove-btn text-xs px-2 py-1 rounded">Remove</button>
+                            </div>
+                        </div>
+                        <input type="file" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" accept=".pdf,.jpg,.jpeg,.png">
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Row 2 -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Document 3 -->
+                <div class="document-item">
+                    <label class="block text-[#6c2c4c] font-medium mb-2">3. Declaration form on Rs.10/- Bond paper (Original)  </label>
+                    <div class="upload-box relative rounded-lg p-6 text-center cursor-pointer" id="upload-3">
+                        <div class="upload-content">
+                            <i class="fas fa-cloud-upload-alt text-3xl text-[#5ccece] mb-3"></i>
+                            <p class="text-gray-500">Drag & Drop or Click to Upload</p>
+                            <p class="text-xs text-gray-400 mt-1">PDF, JPG, or PNG (Max 5MB)</p>
+                        </div>
+                        <div class="upload-preview hidden items-center justify-between mt-3">
+                            <div class="flex items-center">
+                                <i class="fas fa-file-alt text-[#8E7DBE] mr-2"></i>
+                                <span class="file-name text-gray-700"></span>
+                            </div>
+                            <div class="flex items-center">
+                                <i class="fas fa-check checkmark mr-2"></i>
+                                <button class="remove-btn text-xs px-2 py-1 rounded">Remove</button>
+                            </div>
+                        </div>
+                        <input type="file" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" accept=".pdf,.jpg,.jpeg,.png">
+                    </div>
+                </div>
+                
+                <!-- Document 4 -->
+                <div class="document-item">
+                    <label class="block text-[#6c2c4c] font-medium mb-2">4. Present Year Bonafide Certificate (Original) </label>
+                    <div class="upload-box relative rounded-lg p-6 text-center cursor-pointer" id="upload-4">
+                        <div class="upload-content">
+                            <i class="fas fa-cloud-upload-alt text-3xl text-[#5ccece] mb-3"></i>
+                            <p class="text-gray-500">Drag & Drop or Click to Upload</p>
+                            <p class="text-xs text-gray-400 mt-1">PDF, JPG, or PNG (Max 5MB)</p>
+                        </div>
+                        <div class="upload-preview hidden items-center justify-between mt-3">
+                            <div class="flex items-center">
+                                <i class="fas fa-file-alt text-[#8E7DBE] mr-2"></i>
+                                <span class="file-name text-gray-700"></span>
+                            </div>
+                            <div class="flex items-center">
+                                <i class="fas fa-check checkmark mr-2"></i>
+                                <button class="remove-btn text-xs px-2 py-1 rounded">Remove</button>
+                            </div>
+                        </div>
+                        <input type="file" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" accept=".pdf,.jpg,.jpeg,.png">
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Row 3 -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Document 5 -->
+                <div class="document-item">
+                    <label class="block text-[#6c2c4c] font-medium mb-2">5. Bonafide Certificates from 6th to inter (Attested)</label>
+                    <div class="upload-box relative rounded-lg p-6 text-center cursor-pointer" id="upload-5">
+                        <div class="upload-content">
+                            <i class="fas fa-cloud-upload-alt text-3xl text-[#5ccece] mb-3"></i>
+                            <p class="text-gray-500">Drag & Drop or Click to Upload</p>
+                            <p class="text-xs text-gray-400 mt-1">PDF, JPG, or PNG (Max 5MB)</p>
+                        </div>
+                        <div class="upload-preview hidden items-center justify-between mt-3">
+                            <div class="flex items-center">
+                                <i class="fas fa-file-alt text-[#8E7DBE] mr-2"></i>
+                                <span class="file-name text-gray-700"></span>
+                            </div>
+                            <div class="flex items-center">
+                                <i class="fas fa-check checkmark mr-2"></i>
+                                <button class="remove-btn text-xs px-2 py-1 rounded">Remove</button>
+                            </div>
+                        </div>
+                        <input type="file" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" accept=".pdf,.jpg,.jpeg,.png">
+                    </div>
+                </div>
+                
+                <!-- Document 6 -->
+                <div class="document-item">
+                    <label class="block text-[#6c2c4c] font-medium mb-2">6. SSC Memo Xerox (Attested)‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ </label>
+                    <div class="upload-box relative rounded-lg p-6 text-center cursor-pointer" id="upload-6">
+                        <div class="upload-content">
+                            <i class="fas fa-cloud-upload-alt text-3xl text-[#5ccece] mb-3"></i>
+                            <p class="text-gray-500">Drag & Drop or Click to Upload</p>
+                            <p class="text-xs text-gray-400 mt-1">PDF, JPG, or PNG (Max 5MB)</p>
+                        </div>
+                        <div class="upload-preview hidden items-center justify-between mt-3">
+                            <div class="flex items-center">
+                                <i class="fas fa-file-alt text-[#8E7DBE] mr-2"></i>
+                                <span class="file-name text-gray-700"></span>
+                            </div>
+                            <div class="flex items-center">
+                                <i class="fas fa-check checkmark mr-2"></i>
+                                <button class="remove-btn text-xs px-2 py-1 rounded">Remove</button>
+                            </div>
+                        </div>
+                        <input type="file" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" accept=".pdf,.jpg,.jpeg,.png">
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Row 4 -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Document 7 -->
+                <div class="document-item">
+                    <label class="block text-[#6c2c4c] font-medium mb-2">7.. Inter/Diploma Memo Xerox (Attested)</label>
+                    <div class="upload-box relative rounded-lg p-6 text-center cursor-pointer" id="upload-7">
+                        <div class="upload-content">
+                            <i class="fas fa-cloud-upload-alt text-3xl text-[#5ccece] mb-3"></i>
+                            <p class="text-gray-500">Drag & Drop or Click to Upload</p>
+                            <p class="text-xs text-gray-400 mt-1">PDF, JPG, or PNG (Max 5MB)</p>
+                        </div>
+                        <div class="upload-preview hidden items-center justify-between mt-3">
+                            <div class="flex items-center">
+                                <i class="fas fa-file-alt text-[#8E7DBE] mr-2"></i>
+                                <span class="file-name text-gray-700"></span>
+                            </div>
+                            <div class="flex items-center">
+                                <i class="fas fa-check checkmark mr-2"></i>
+                                <button class="remove-btn text-xs px-2 py-1 rounded">Remove</button>
+                            </div>
+                        </div>
+                        <input type="file" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" accept=".pdf,.jpg,.jpeg,.png">
+                    </div>
+                </div>
+                
+                <!-- Document 8 -->
+                <div class="document-item">
+                    <label class="block text-[#6c2c4c] font-medium mb-2">8. Previous year Marks Memo’s (Both Sem) Xerox (Attested)</label>
+                    <div class="upload-box relative rounded-lg p-6 text-center cursor-pointer" id="upload-8">
+                        <div class="upload-content">
+                            <i class="fas fa-cloud-upload-alt text-3xl text-[#5ccece] mb-3"></i>
+                            <p class="text-gray-500">Drag & Drop or Click to Upload</p>
+                            <p class="text-xs text-gray-400 mt-1">PDF, JPG, or PNG (Max 5MB)</p>
+                        </div>
+                        <div class="upload-preview hidden items-center justify-between mt-3">
+                            <div class="flex items-center">
+                                <i class="fas fa-file-alt text-[#8E7DBE] mr-2"></i>
+                                <span class="file-name text-gray-700"></span>
+                            </div>
+                            <div class="flex items-center">
+                                <i class="fas fa-check checkmark mr-2"></i>
+                                <button class="remove-btn text-xs px-2 py-1 rounded">Remove</button>
+                            </div>
+                        </div>
+                        <input type="file" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" accept=".pdf,.jpg,.jpeg,.png">
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Row 5 -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Document 9 -->
+                <div class="document-item">
+                    <label class="block text-[#6c2c4c] font-medium mb-2">9. Ration Card Xerox (Attested)</label>
+                    <div class="upload-box relative rounded-lg p-6 text-center cursor-pointer" id="upload-9">
+                        <div class="upload-content">
+                            <i class="fas fa-cloud-upload-alt text-3xl text-[#5ccece] mb-3"></i>
+                            <p class="text-gray-500">Drag & Drop or Click to Upload</p>
+                            <p class="text-xs text-gray-400 mt-1">PDF, JPG, or PNG (Max 5MB)</p>
+                        </div>
+                        <div class="upload-preview hidden items-center justify-between mt-3">
+                            <div class="flex items-center">
+                                <i class="fas fa-file-alt text-[#8E7DBE] mr-2"></i>
+                                <span class="file-name text-gray-700"></span>
+                            </div>
+                            <div class="flex items-center">
+                                <i class="fas fa-check checkmark mr-2"></i>
+                                <button class="remove-btn text-xs px-2 py-1 rounded">Remove</button>
+                            </div>
+                        </div>
+                        <input type="file" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" accept=".pdf,.jpg,.jpeg,.png">
+                    </div>
+                </div>
+                
+                <!-- Document 10 -->
+                <div class="document-item">
+                    <label class="block text-[#6c2c4c] font-medium mb-2">10. Aadhaar card Xerox (Attested)‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ </label>
+                    <div class="upload-box relative rounded-lg p-6 text-center cursor-pointer" id="upload-10">
+                        <div class="upload-content">
+                            <i class="fas fa-cloud-upload-alt text-3xl text-[#5ccece] mb-3"></i>
+                            <p class="text-gray-500">Drag & Drop or Click to Upload</p>
+                            <p class="text-xs text-gray-400 mt-1">PDF, JPG, or PNG (Max 5MB)</p>
+                        </div>
+                        <div class="upload-preview hidden items-center justify-between mt-3">
+                            <div class="flex items-center">
+                                <i class="fas fa-file-alt text-[#8E7DBE] mr-2"></i>
+                                <span class="file-name text-gray-700"></span>
+                            </div>
+                            <div class="flex items-center">
+                                <i class="fas fa-check checkmark mr-2"></i>
+                                <button class="remove-btn text-xs px-2 py-1 rounded">Remove</button>
+                            </div>
+                        </div>
+                        <input type="file" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" accept=".pdf,.jpg,.jpeg,.png">
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Row 6 -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Document 11 -->
+                <div class="document-item">
+                    <label class="block text-[#6c2c4c] font-medium mb-2">11. Bank Account pass book Xerox (Attested)</label>
+                    <div class="upload-box relative rounded-lg p-6 text-center cursor-pointer" id="upload-11">
+                        <div class="upload-content">
+                            <i class="fas fa-cloud-upload-alt text-3xl text-[#5ccece] mb-3"></i>
+                            <p class="text-gray-500">Drag & Drop or Click to Upload</p>
+                            <p class="text-xs text-gray-400 mt-1">PDF, JPG, or PNG (Max 5MB)</p>
+                        </div>
+                        <div class="upload-preview hidden items-center justify-between mt-3">
+                            <div class="flex items-center">
+                                <i class="fas fa-file-alt text-[#8E7DBE] mr-2"></i>
+                                <span class="file-name text-gray-700"></span>
+                            </div>
+                            <div class="flex items-center">
+                                <i class="fas fa-check checkmark mr-2"></i>
+                                <button class="remove-btn text-xs px-2 py-1 rounded">Remove</button>
+                            </div>
+                        </div>
+                        <input type="file" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" accept=".pdf,.jpg,.jpeg,.png">
+                    </div>
+                </div>
+                
+                <!-- Document 12 -->
+                <div class="document-item">
+                    <label class="block text-[#6c2c4c] font-medium mb-2">12. Allotment order Xerox (Attested)‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ </label>
+                    <div class="upload-box relative rounded-lg p-6 text-center cursor-pointer" id="upload-12">
+                        <div class="upload-content">
+                            <i class="fas fa-cloud-upload-alt text-3xl text-[#5ccece] mb-3"></i>
+                            <p class="text-gray-500">Drag & Drop or Click to Upload</p>
+                            <p class="text-xs text-gray-400 mt-1">PDF, JPG, or PNG (Max 5MB)</p>
+                        </div>
+                        <div class="upload-preview hidden items-center justify-between mt-3">
+                            <div class="flex items-center">
+                                <i class="fas fa-file-alt text-[#8E7DBE] mr-2"></i>
+                                <span class="file-name text-gray-700"></span>
+                            </div>
+                            <div class="flex items-center">
+                                <i class="fas fa-check checkmark mr-2"></i>
+                                <button class="remove-btn text-xs px-2 py-1 rounded">Remove</button>
+                            </div>
+                        </div>
+                        <input type="file" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" accept=".pdf,.jpg,.jpeg,.png">
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Row 7 -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Document 13 -->
+                <div class="document-item">
+                    <label class="block text-[#6c2c4c] font-medium mb-2">13. Current year Challan copy of O.U Common Services Fee</label>
+                    <div class="upload-box relative rounded-lg p-6 text-center cursor-pointer" id="upload-13">
+                        <div class="upload-content">
+                            <i class="fas fa-cloud-upload-alt text-3xl text-[#5ccece] mb-3"></i>
+                            <p class="text-gray-500">Drag & Drop or Click to Upload</p>
+                            <p class="text-xs text-gray-400 mt-1">PDF, JPG, or PNG (Max 5MB)</p>
+                        </div>
+                        <div class="upload-preview hidden items-center justify-between mt-3">
+                            <div class="flex items-center">
+                                <i class="fas fa-file-alt text-[#8E7DBE] mr-2"></i>
+                                <span class="file-name text-gray-700"></span>
+                            </div>
+                            <div class="flex items-center">
+                                <i class="fas fa-check checkmark mr-2"></i>
+                                <button class="remove-btn text-xs px-2 py-1 rounded">Remove</button>
+                            </div>
+                        </div>
+                        <input type="file" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" accept=".pdf,.jpg,.jpeg,.png">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Submit Button at the bottom -->
+            <div class="mt-8 text-center">
+                <button class="submit-btn text-white py-2 px-6 rounded-lg font-semibold">
+                    Submit All Documents
+                </button>
+            </div>
+        </div>
+
+    <script>
+                // Document type mapping
+        const documentTypes = {
+            'upload-1': 'application_form',
+            'upload-2': 'income_certificate',
+            'upload-3': 'declaration_bond',
+            'upload-4': 'present_year_bonafide',
+            'upload-5': 'bonafide_6th_to_inter',
+            'upload-6': 'ssc_memo',
+            'upload-7': 'inter_diploma_memo',
+            'upload-8': 'previous_year_marks_memo',
+            'upload-9': 'ration_card',
+            'upload-10': 'aadhaar_card',
+            'upload-11': 'bank_passbook',
+            'upload-12': 'allotment_order',
+            'upload-13': 'ou_challan_copy'
+        };
+
+        // Function to verify document using OCR
+        async function upload_doc(file, documentType) {
+            const formData = new FormData();
+            formData.append('document', file);
+            formData.append('document_type', documentType);
+    
+            try {
+                const response = await fetch('/upload_doc_reg', {
+                    method: 'POST',
+                    body: formData
+                });
+    
+                const result = await response.json();
+                return result;
+            } catch (error) {
+                console.error('Error:', error);
+                return { success: false, error: 'Verification failed' };
+            }
+        }
+
+        // Handle file upload for all upload boxes
+        document.querySelectorAll('.upload-box').forEach(uploadBox => {
+            const input = uploadBox.querySelector('input[type="file"]');
+            const uploadContent = uploadBox.querySelector('.upload-content');
+            const uploadPreview = uploadBox.querySelector('.upload-preview');
+            const fileName = uploadBox.querySelector('.file-name');
+            const removeBtn = uploadBox.querySelector('.remove-btn');
+            const checkmark = uploadBox.querySelector('.checkmark');
+            
+            // Handle file selection with OCR verification
+            input.addEventListener('change', async (e) => {
+                if (input.files.length) {
+                    const file = input.files[0];
+                    const docType = documentTypes[uploadBox.id];
+
+                    // Show loading state
+                    fileName.textContent = 'Verifying document...';
+                    uploadContent.classList.add('hidden');
+                    uploadPreview.classList.remove('hidden');
+                    uploadBox.classList.add('active');
+
+                    // Verify document
+                    const result = await upload_doc(file, docType);
+                    
+                    if (result.success) {
+                        fileName.textContent = file.name;
+                        checkmark.style.color = '#4cad69'; // Green for success
+                        uploadBox.dataset.verified = 'true';
+                    } else {
+                        fileName.textContent = `${file.name} (Verification Failed)`;
+                        checkmark.style.color = '#dc2626'; // Red for failure
+                        uploadBox.dataset.verified = 'false';
+                    }
+                }
+            });
+
+              
+            // Handle drag and drop
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                uploadBox.addEventListener(eventName, (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                });
+            });
+            
+            ['dragenter', 'dragover'].forEach(eventName => {
+                uploadBox.addEventListener(eventName, () => {
+                    uploadBox.classList.add('active');
+                });
+            });
+            
+            ['dragleave', 'drop'].forEach(eventName => {
+                uploadBox.addEventListener(eventName, () => {
+                    uploadBox.classList.remove('active');
+                });
+            });
+            
+            uploadBox.addEventListener('drop', (e) => {
+                input.files = e.dataTransfer.files;
+                if (input.files.length) {
+                    const file = input.files[0];
+                    fileName.textContent = file.name;
+                    uploadContent.classList.add('hidden');
+                    uploadPreview.classList.remove('hidden');
+                }
+            });
+            
+            // Update remove button handler
+            removeBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    input.value = '';
+                    uploadContent.classList.remove('hidden');
+                    uploadPreview.classList.add('hidden');
+                    uploadBox.classList.remove('active');
+                    uploadBox.dataset.verified = 'false';
+                    checkmark.style.color = '#6c2c4c'; // Reset color
+                });
+            });
+        
+        // Handle submit button
+        document.querySelector('.submit-btn').addEventListener('click', () => {
+            const uploadedFiles = document.querySelectorAll('.upload-preview:not(.hidden)');
+            if (uploadedFiles.length === 15) {
+                alert('All documents uploaded successfully! Your submission is being processed.');
+            } else {
+                alert(`Please upload all 15 required documents. You've uploaded ${uploadedFiles.length} of 15.`);
+            }
+        });
+    </script>
+</body>
+</html>
