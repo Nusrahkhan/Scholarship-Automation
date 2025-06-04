@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Progress Tracker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* Custom styles */
+        body {
+            background-image: url('https://i.pinimg.com/736x/fb/0b/24/fb0b24bffa5743d27e1479e3655a8324.jpg');
+            background-size: cover;
+            background-repeat: no-repeat;
+            background-position: center;
+        }
+        .progress-tracker::before {
+            content: '';
+            position: absolute;
+            top: 24px;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: rgba(190, 125, 125, 0.694);
+            z-index: 0;
+        }
+        
+        .progress-line {
+            position: absolute;
+            top: 24px;
+            left: 0;
+            height: 4px;
+            background: #9C3B1B;
+            z-index: 1;
+            transition: width 0.3s ease;
+        }
+        
+        @media (max-width: 640px) {
+            .progress-container {
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+            .progress-tracker {
+                min-width: 600px;
+            }
+        }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4">
+    <div class="w-full max-w-4xl">
+        <div class="bg-white bg-opacity-70 rounded-2xl shadow-lg p-6">
+            <h1 class="text-[#9C3B1B] text-2xl font-bold mb-8 text-center">Application Progress Tracker</h1>
+            
+            <div class="progress-container relative py-8">
+                <div class="progress-line" id="progressLine" style="width: 0%"></div>
+                
+                <div class="progress-tracker relative flex justify-between items-start">
+                    <!-- Step 1 -->
+                    <div class="step flex flex-col items-center relative z-10 w-1/5" data-step="1">
+                        <button class="step-btn w-12 h-12 rounded-full flex items-center justify-center text-white font-bold shadow-lg transition-all duration-300 bg-[#9C3B1B] bg-opacity-80 hover:scale-110 focus:outline-none focus:ring-4 focus:ring-[#d4ccb4]"
+                                onclick="setActiveStep(1)">
+                            <i class="fas fa-file-alt"></i>
+                        </button>
+                        <span class="text-xs md:text-sm font-medium text-center mt-2 text-[#9C3B1B] opacity-80">Fill out form</span>
+                    </div>
+                    
+                    <!-- Step 2 -->
+                    <div class="step flex flex-col items-center relative z-10 w-1/5" data-step="2">
+                        <button class="step-btn w-12 h-12 rounded-full flex items-center justify-center text-white font-bold shadow-lg transition-all duration-300 bg-[#9C3B1B] bg-opacity-80 hover:scale-110 focus:outline-none focus:ring-4 focus:ring-[#d4ccb4]"
+                                onclick="setActiveStep(2)">
+                            <i class="fas fa-signature"></i>
+                        </button>
+                        <span class="text-xs md:text-sm font-medium text-center mt-2 text-[#9C3B1B] opacity-80">Get documents signed</span>
+                    </div>
+                    
+                    <!-- Step 3 -->
+                    <div class="step flex flex-col items-center relative z-10 w-1/5" data-step="3">
+                        <button class="step-btn w-12 h-12 rounded-full flex items-center justify-center text-white font-bold shadow-lg transition-all duration-300 bg-[#9C3B1B] bg-opacity-80 hover:scale-110 focus:outline-none focus:ring-4 focus:ring-[#d4ccb4]"
+                                onclick="setActiveStep(3)">
+                            <i class="fas fa-upload"></i>
+                        </button>
+                        <span class="text-xs md:text-sm font-medium text-center mt-2 text-[#9C3B1B] opacity-80">Upload documents</span>
+                    </div>
+                    
+                    <!-- Step 4 -->
+                    <div class="step flex flex-col items-center relative z-10 w-1/5" data-step="4">
+                        <button class="step-btn w-12 h-12 rounded-full flex items-center justify-center text-white font-bold shadow-lg transition-all duration-300 bg-[#9C3B1B] bg-opacity-80 hover:scale-110 focus:outline-none focus:ring-4 focus:ring-[#d4ccb4]"
+                                onclick="setActiveStep(4)">
+                            <i class="fas fa-fingerprint"></i>
+                        </button>
+                        <span class="text-xs md:text-sm font-medium text-center mt-2 text-[#9C3B1B] opacity-80">Biometric at Meeseva</span>
+                    </div>
+                    
+                    <!-- Step 5 -->
+                    <div class="step flex flex-col items-center relative z-10 w-1/5" data-step="5">
+                        <button class="step-btn w-12 h-12 rounded-full flex items-center justify-center text-white font-bold shadow-lg transition-all duration-300 bg-[#9C3B1B] bg-opacity-80 hover:scale-110 focus:outline-none focus:ring-4 focus:ring-[#d4ccb4]"
+                                onclick="setActiveStep(5)">
+                            <i class="fas fa-calendar-check"></i>
+                        </button>
+                        <span class="text-xs md:text-sm font-medium text-center mt-2 text-[#9C3B1B] opacity-80">Appointment – submitting hard copy</span>
+                    </div>
+                </div>
+            </div>
+            
+        
+        </div>
+    </div>
+
+    <script>
+        let currentStep = 0;
+        const steps = document.querySelectorAll('.step');
+        const progressLine = document.getElementById('progressLine');
+        const statusMessage = document.getElementById('statusMessage');
+       
+
+        function setActiveStep(step) {
+            currentStep = step;
+            updateProgress();
+        }
+
+        function updateProgress() {
+            // Reset all steps
+            steps.forEach((step, index) => {
+                const stepBtn = step.querySelector('.step-btn');
+                const stepLabel = step.querySelector('span');
+                
+                if (index + 1 < currentStep) {
+                    // Completed steps
+                    stepBtn.className = stepBtn.className.replace(/bg-\[[^\]]+\]/g, 'bg-[#769770]');
+                    stepLabel.className = stepLabel.className.replace(/text-\[[^\]]+\]/g, 'text-[#5a7184]');
+                    stepBtn.innerHTML = '<i class="fas fa-check"></i>';
+                } else if (index + 1 === currentStep) {
+                    // Current step
+                    stepBtn.className = stepBtn.className.replace(/bg-\[[^\]]+\]/g, 'bg-[#39788c]');
+                    stepLabel.className = stepLabel.className.replace(/text-\[[^\]]+\]/g, 'text-[#3a7b7b]');
+                    // Set back to original icon
+                    const icons = ['fa-file-alt', 'fa-signature', 'fa-upload', 'fa-fingerprint', 'fa-calendar-check'];
+                    stepBtn.innerHTML = `<i class="fas ${icons[index]}"></i>`;
+                } else {
+                    // Upcoming steps
+                    stepBtn.className = stepBtn.className.replace(/bg-\[[^\]]+\]/g, 'bg-[#9C3B1B]');
+                    stepLabel.className = stepLabel.className.replace(/text-\[[^\]]+\]/g, 'text-[#9C3B1B]');
+                    // Set back to original icon
+                    const icons = ['fa-file-alt', 'fa-signature', 'fa-upload', 'fa-fingerprint', 'fa-calendar-check'];
+                    stepBtn.innerHTML = `<i class="fas ${icons[index]}"></i>`;
+                }
+            });
+
+            // Update progress line
+            const progressPercentage = ((currentStep - 1) / (steps.length - 1)) * 100;
+            progressLine.style.width = progressPercentage + '%';
+            
+            // Update status message
+            statusMessage.textContent = stepMessages[currentStep];
+            
+            // Add celebration for completing all steps
+            if (currentStep === steps.length) {
+                setTimeout(() => {
+                    document.body.classList.add('animate-pulse');
+                    setTimeout(() => {
+                        document.body.classList.remove('animate-pulse');
+                    }, 1000);
+                }, 300);
+            }
+        }
+
+        // Initialize
+        updateProgress();
+    </script>
+</body>
+</html>
