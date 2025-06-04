@@ -1,32 +1,28 @@
 import re
-import spacy
 import logging
+import spacy
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Load SpaCy model (lazy loading)
-nlp = None
-
-def get_nlp():
-    """Get or initialize the SpaCy NLP model."""
-    global nlp
-    if nlp is None:
-        try:
-            nlp = spacy.load("en_core_web_sm")
-        except OSError:
-            logger.error("SpaCy model not found. Please download it using: python -m spacy download en_core_web_sm")
-            raise
-    return nlp
-
 class ValidationService:
     """Service for validating document content."""
 
-    def validate_document(self, text, document_type, student_id=None, student_category=None):
+    # Load SpaCy model only once for all instances
+    _nlp = None
+    @staticmethod
+    def get_nlp():
+        if ValidationService._nlp is None:
+            ValidationService._nlp = spacy.load('en_core_web_sm')
+        return ValidationService._nlp
+
+    def validate_document(self, text, document_type, student_id=None, student_category=None, gemini_info=None):
         print("OCR TEXT:", text)
-        """Validate document content based on document type with consistency checks and student category."""
-        if not text:
+        """Validate document content based on document type with consistency checks and student category.
+        Optionally uses Gemini's structured output if provided.
+        """
+        if not text and not gemini_info:
             return {
                 'status': 'Rejected',
                 'feedback': 'Invalid file attached'
@@ -66,8 +62,8 @@ class ValidationService:
         if category_check['status'] == 'Rejected':
             return category_check
 
-        # Perform document-specific validation with student category
-        result = validation_methods[document_type](text, student_category)
+        # Perform document-specific validation with student category and gemini_info
+        result = validation_methods[document_type](text, student_category, gemini_info=gemini_info)
 
         # If basic validation failed, return early
         if result['status'] == 'Rejected':
@@ -81,12 +77,38 @@ class ValidationService:
 
         return result
 
-    def validate_aadhaar(self, text, student_category=None):
-        """Validate Aadhaar card content."""
-        # Get NLP model
-        nlp = get_nlp()
+    def validate_aadhaar(self, text, student_category=None, gemini_info=None):
+        """Validate Aadhaar card content. Uses Gemini structured info if available."""
+        # If Gemini structured info is provided, use it for validation
+        if gemini_info and isinstance(gemini_info, dict):
+            key_fields = gemini_info.get('key_fields', {})
+            # 100% field coverage: check all possible variants
+            has_name = bool(key_fields.get('name') or key_fields.get('Name'))
+            has_aadhaar_number = bool(key_fields.get('aadhaar_number') or key_fields.get('Aadhaar number') or key_fields.get('aadhaar') or key_fields.get('Aadhaar'))
+            has_dob = bool(key_fields.get('dob') or key_fields.get('date of birth') or key_fields.get('date') or key_fields.get('DOB'))
+            has_gender = bool(key_fields.get('gender') or key_fields.get('Gender'))
+            missing_fields = []
+            if not has_name:
+                missing_fields.append('name')
+            if not has_aadhaar_number:
+                missing_fields.append('Aadhaar number')
+            if not has_dob:
+                missing_fields.append('date of birth')
+            if not has_gender:
+                missing_fields.append('gender')
+            if missing_fields:
+                return {
+                    'status': 'Rejected',
+                    'feedback': f'Invalid file attached (missing: {", ".join(missing_fields)})'
+                }
+            else:
+                return {
+                    'status': 'Approve',
+                    'feedback': 'Uploaded successfully (Gemini)'
+                }
 
-        # Process text with SpaCy
+        # Only run NLP if Gemini validation did not return
+        nlp = self.get_nlp()
         doc = nlp(text)
 
         # Initialize validation results
@@ -195,12 +217,27 @@ class ValidationService:
                 'feedback': 'Uploaded successfully'
             }
 
-    def validate_allotment_order(self, text, student_category=None):
-        """Validate Allotment Order content."""
-        # Get NLP model
-        nlp = get_nlp()
+    def validate_allotment_order(self, text, student_category=None, gemini_info=None):
+        """Validate Allotment Order content. Uses Gemini structured info if available."""
+        if gemini_info and isinstance(gemini_info, dict):
+            doc_type = gemini_info.get('document_type', '')
+            key_fields = gemini_info.get('key_fields', {})
+            has_heading = 'allotment' in doc_type.lower() or 'allotment' in (key_fields.get('heading', '')).lower()
+            has_college_name = bool(key_fields.get('college_name') or key_fields.get('College Name'))
+            has_name = bool(key_fields.get('name') or key_fields.get('Name'))
+            missing_fields = []
+            if not has_heading:
+                missing_fields.append('PROVISIONAL ALLOTMENT ORDER heading')
+            if not has_college_name:
+                missing_fields.append('college name')
+            if not has_name:
+                missing_fields.append('candidate name')
+            if missing_fields:
+                return {'status': 'Rejected', 'feedback': f'Invalid file attached (missing: {", ".join(missing_fields)})'}
+            else:
+                return {'status': 'Approve', 'feedback': 'Uploaded successfully (Gemini)'}
 
-        # Process text with SpaCy
+        nlp = self.get_nlp()
         doc = nlp(text)
 
         # Initialize validation results
@@ -255,9 +292,26 @@ class ValidationService:
                 'feedback': 'Uploaded successfully'
             }
 
-    def validate_10th_marks_memo(self, text, student_category=None):
-        """Validate 10th Marks Memo content."""
-        nlp = get_nlp()
+    def validate_10th_marks_memo(self, text, student_category=None, gemini_info=None):
+        """Validate 10th Marks Memo content. Uses Gemini structured info if available."""
+        if gemini_info and isinstance(gemini_info, dict):
+            key_fields = gemini_info.get('key_fields', {})
+            has_name = bool(key_fields.get('name') or key_fields.get('Name'))
+            has_hall_ticket = bool(key_fields.get('hall_ticket') or key_fields.get('Hall Ticket Number'))
+            has_board_name = bool(key_fields.get('board_name') or key_fields.get('Board Name'))
+            missing_fields = []
+            if not has_name:
+                missing_fields.append('name')
+            if not has_hall_ticket:
+                missing_fields.append('hall ticket number')
+            if not has_board_name:
+                missing_fields.append('board name')
+            if missing_fields:
+                return {'status': 'Rejected', 'feedback': f'Invalid file attached (missing: {", ".join(missing_fields)})'}
+            else:
+                return {'status': 'Approve', 'feedback': 'Uploaded successfully (Gemini)'}
+
+        nlp = self.get_nlp()
         doc = nlp(text)
 
         validation = {
@@ -315,11 +369,32 @@ class ValidationService:
                 'feedback': 'Uploaded successfully'
             }
 
-    def validate_intermediate_marks_memo(self, text, student_category=None):
-        """Validate Intermediate Marks Memo content."""
-        nlp = get_nlp()
+    def validate_intermediate_marks_memo(self, text, student_category=None, gemini_info=None):
+        """Validate Intermediate Marks Memo content. Uses Gemini structured info if available."""
+        if gemini_info and isinstance(gemini_info, dict):
+            key_fields = gemini_info.get('key_fields', {})
+            has_heading = 'intermediate' in (gemini_info.get('document_type', '')).lower() or 'intermediate' in (key_fields.get('heading', '')).lower()
+            has_name = bool(key_fields.get('name') or key_fields.get('Name'))
+            has_father_name = bool(key_fields.get('father_name') or key_fields.get('Father Name'))
+            has_mother_name = bool(key_fields.get('mother_name') or key_fields.get('Mother Name'))
+            missing_fields = []
+            if not has_heading:
+                missing_fields.append('INTERMEDIATE PASS CERTIFICATE-CUM-MEMORANDUM OF MARKS heading')
+            if not has_name:
+                missing_fields.append('name')
+            if not has_father_name:
+                missing_fields.append("father's name")
+            if not has_mother_name:
+                missing_fields.append("mother's name")
+            if missing_fields:
+                return {'status': 'Rejected', 'feedback': f'Invalid file attached (missing: {", ".join(missing_fields)})'}
+            else:
+                return {'status': 'Approve', 'feedback': 'Uploaded successfully (Gemini)'}
+
+        nlp = self.get_nlp()
         doc = nlp(text)
 
+        # Initialize validation results
         validation = {
             'has_heading': False,
             'has_name': False,
@@ -379,11 +454,30 @@ class ValidationService:
                 'feedback': 'Uploaded successfully'
             }
 
-    def validate_school_bonafide(self, text, student_category=None):
-        """Validate School Bonafide Certificate content."""
-        nlp = get_nlp()
+    def validate_school_bonafide(self, text, student_category=None, gemini_info=None):
+        """Validate School Bonafide Certificate content. Uses Gemini structured info if available."""
+        if gemini_info and isinstance(gemini_info, dict):
+            doc_type = gemini_info.get('document_type', '')
+            key_fields = gemini_info.get('key_fields', {})
+            has_heading = 'bonafide' in doc_type.lower() or 'bonafide' in (key_fields.get('heading', '')).lower()
+            has_name = bool(key_fields.get('name') or key_fields.get('Name'))
+            has_school_name = bool(key_fields.get('school_name') or key_fields.get('School Name'))
+            missing_fields = []
+            if not has_heading:
+                missing_fields.append('bonafide certificate heading')
+            if not has_name:
+                missing_fields.append('name')
+            if not has_school_name:
+                missing_fields.append('school name')
+            if missing_fields:
+                return {'status': 'Rejected', 'feedback': f'Invalid file attached (missing: {", ".join(missing_fields)})'}
+            else:
+                return {'status': 'Approve', 'feedback': 'Uploaded successfully (Gemini)'}
+
+        nlp = self.get_nlp()
         doc = nlp(text)
 
+        # Initialize validation results
         validation = {
             'has_heading': False,
             'has_date': False,
@@ -433,11 +527,30 @@ class ValidationService:
                 'feedback': 'Uploaded successfully'
             }
 
-    def validate_intermediate_bonafide(self, text, student_category=None):
-        """Validate Intermediate Bonafide Certificate content."""
-        nlp = get_nlp()
+    def validate_intermediate_bonafide(self, text, student_category=None, gemini_info=None):
+        """Validate Intermediate Bonafide Certificate content. Uses Gemini structured info if available."""
+        if gemini_info and isinstance(gemini_info, dict):
+            doc_type = gemini_info.get('document_type', '')
+            key_fields = gemini_info.get('key_fields', {})
+            has_heading = 'bonafide' in doc_type.lower() or 'bonafide' in (key_fields.get('heading', '')).lower()
+            has_name = bool(key_fields.get('name') or key_fields.get('Name'))
+            has_college_name = bool(key_fields.get('college_name') or key_fields.get('College Name'))
+            missing_fields = []
+            if not has_heading:
+                missing_fields.append('bonafide certificate heading')
+            if not has_name:
+                missing_fields.append('name')
+            if not has_college_name:
+                missing_fields.append('college name')
+            if missing_fields:
+                return {'status': 'Rejected', 'feedback': f'Invalid file attached (missing: {", ".join(missing_fields)})'}
+            else:
+                return {'status': 'Approve', 'feedback': 'Uploaded successfully (Gemini)'}
+
+        nlp = self.get_nlp()
         doc = nlp(text)
 
+        # Initialize validation results
         validation = {
             'has_heading': False,
             'has_date': False,
@@ -487,11 +600,30 @@ class ValidationService:
                 'feedback': 'Uploaded successfully'
             }
 
-    def validate_intermediate_transfer_certificate(self, text, student_category=None):
-        """Validate Intermediate Transfer Certificate content."""
-        nlp = get_nlp()
+    def validate_intermediate_transfer_certificate(self, text, student_category=None, gemini_info=None):
+        """Validate Intermediate Transfer Certificate content. Uses Gemini structured info if available."""
+        if gemini_info and isinstance(gemini_info, dict):
+            doc_type = gemini_info.get('document_type', '')
+            key_fields = gemini_info.get('key_fields', {})
+            has_heading = 'transfer certificate' in doc_type.lower() or 'transfer certificate' in (key_fields.get('heading', '')).lower()
+            has_name = bool(key_fields.get('name') or key_fields.get('Name'))
+            has_college_name = bool(key_fields.get('college_name') or key_fields.get('College Name'))
+            missing_fields = []
+            if not has_heading:
+                missing_fields.append('TRANSFER CERTIFICATE heading')
+            if not has_college_name:
+                missing_fields.append('college name')
+            if not has_name:
+                missing_fields.append('name')
+            if missing_fields:
+                return {'status': 'Rejected', 'feedback': f'Invalid file attached (missing: {", ".join(missing_fields)})'}
+            else:
+                return {'status': 'Approve', 'feedback': 'Uploaded successfully (Gemini)'}
+
+        nlp = self.get_nlp()
         doc = nlp(text)
 
+        # Initialize validation results
         validation = {
             'has_heading': False,
             'has_college_name': False,
@@ -545,11 +677,32 @@ class ValidationService:
                 'feedback': 'Uploaded successfully'
             }
 
-    def validate_be_bonafide_certificate(self, text, student_category=None):
-        """Validate BE Bonafide Certificate content (name and roll number validation removed for higher success rate)."""
-        nlp = get_nlp()
+    def validate_be_bonafide_certificate(self, text, student_category=None, gemini_info=None):
+        """Validate BE Bonafide Certificate content. Uses Gemini structured info if available."""
+        if gemini_info and isinstance(gemini_info, dict):
+            doc_type = gemini_info.get('document_type', '')
+            key_fields = gemini_info.get('key_fields', {})
+            has_college_name = bool(key_fields.get('college_name') or key_fields.get('College Name'))
+            has_heading = 'bonafide' in doc_type.lower() or 'bonafide' in (key_fields.get('heading', '')).lower()
+            has_date = bool(key_fields.get('date') or key_fields.get('Date'))
+            missing_fields = []
+            if not has_college_name:
+                missing_fields.append('MUFFAKHAM JAH COLLEGE OF ENGINEERING & TECHNOLOGY')
+            if not has_heading:
+                missing_fields.append('Bonafide/Conduct Certificate heading')
+            if not has_date:
+                from datetime import datetime
+                current_year = datetime.now().year
+                missing_fields.append(f'Please ensure the date is of current year ({current_year})')
+            if missing_fields:
+                return {'status': 'Rejected', 'feedback': f'Invalid file attached. Missing fields: {", ".join(missing_fields)}'}
+            else:
+                return {'status': 'Approve', 'feedback': 'Uploaded successfully (Gemini)'}
+
+        nlp = self.get_nlp()
         doc = nlp(text)
 
+        # Initialize validation results
         validation = {
             'has_college_name': False,
             'has_heading': False,
@@ -641,11 +794,33 @@ class ValidationService:
                 'feedback': 'Uploaded successfully'
             }
 
-    def validate_income_certificate(self, text, student_category=None):
-        """Validate Income Certificate content."""
-        nlp = get_nlp()
+    def validate_income_certificate(self, text, student_category=None, gemini_info=None):
+        """Validate Income Certificate content. Uses Gemini structured info if available."""
+        if gemini_info and isinstance(gemini_info, dict):
+            doc_type = gemini_info.get('document_type', '')
+            key_fields = gemini_info.get('key_fields', {})
+            has_heading = 'income certificate' in doc_type.lower() or 'income certificate' in (key_fields.get('heading', '')).lower()
+            has_name = bool(key_fields.get('name') or key_fields.get('Name'))
+            has_application_number = bool(key_fields.get('application_number') or key_fields.get('Application Number'))
+            has_date = bool(key_fields.get('date') or key_fields.get('Date'))
+            missing_fields = []
+            if not has_heading:
+                missing_fields.append('INCOME CERTIFICATE heading')
+            if not has_name:
+                missing_fields.append('name')
+            if not has_application_number:
+                missing_fields.append('application number (14-digit)')
+            if not has_date:
+                missing_fields.append('date')
+            if missing_fields:
+                return {'status': 'Rejected', 'feedback': f'Invalid file attached (missing: {", ".join(missing_fields)})'}
+            else:
+                return {'status': 'Approve', 'feedback': 'Uploaded successfully (Gemini)'}
+
+        nlp = self.get_nlp()
         doc = nlp(text)
 
+        # Initialize validation results
         validation = {
             'has_heading': False,
             'has_name': False,
@@ -720,11 +895,29 @@ class ValidationService:
                 'feedback': 'Uploaded successfully'
             }
 
-    def validate_student_bank_pass_book(self, text, student_category=None):
-        """Validate Student Bank Pass Book content."""
-        nlp = get_nlp()
+    def validate_student_bank_pass_book(self, text, student_category=None, gemini_info=None):
+        """Validate Student Bank Pass Book content. Uses Gemini structured info if available."""
+        if gemini_info and isinstance(gemini_info, dict):
+            key_fields = gemini_info.get('key_fields', {})
+            has_bank_name = bool(key_fields.get('bank_name') or key_fields.get('Bank Name'))
+            has_name = bool(key_fields.get('name') or key_fields.get('Name'))
+            has_account_number = bool(key_fields.get('account_number') or key_fields.get('Account Number'))
+            missing_fields = []
+            if not has_bank_name:
+                missing_fields.append('bank name')
+            if not has_name:
+                missing_fields.append('name')
+            if not has_account_number:
+                missing_fields.append('account number')
+            if missing_fields:
+                return {'status': 'Rejected', 'feedback': f'Invalid file attached (missing: {", ".join(missing_fields)})'}
+            else:
+                return {'status': 'Approve', 'feedback': 'Uploaded successfully (Gemini)'}
+
+        nlp = self.get_nlp()
         doc = nlp(text)
 
+        # Initialize validation results
         validation = {
             'has_bank_name': False,
             'has_name': False,
@@ -768,16 +961,29 @@ class ValidationService:
                 'feedback': 'Uploaded successfully'
             }
 
-    def validate_latest_sem_memo(self, text, student_category=None):
-        """Validate Latest Sem Memo content with category-specific rules."""
+    def validate_latest_sem_memo(self, text, student_category=None, gemini_info=None):
+        """Validate Latest Sem Memo content. Uses Gemini structured info if available."""
+        if gemini_info and isinstance(gemini_info, dict):
+            key_fields = gemini_info.get('key_fields', {})
+            has_university_name = bool(key_fields.get('university_name') or key_fields.get('University Name'))
+            has_examination_name = bool(key_fields.get('examination_name') or key_fields.get('Examination Name'))
+            has_name = bool(key_fields.get('name') or key_fields.get('Name'))
+            has_roll_no = bool(key_fields.get('roll_no') or key_fields.get('Roll No'))
+            missing_fields = []
+            if not has_university_name:
+                missing_fields.append('OSMANIA UNIVERSITY')
+            if not has_examination_name:
+                missing_fields.append('examination name')
+            if not has_name:
+                missing_fields.append('name')
+            if not has_roll_no:
+                missing_fields.append('roll no')
+            if missing_fields:
+                return {'status': 'Rejected', 'feedback': f'Invalid file attached (missing: {", ".join(missing_fields)})'}
+            else:
+                return {'status': 'Approve', 'feedback': 'Uploaded successfully (Gemini)'}
 
-        # Check if this document is allowed for the student category
-        if student_category == '1st_year':
-            return {
-                'status': 'Rejected',
-                'feedback': 'Semester memos not required for 1st-year students'
-            }
-        nlp = get_nlp()
+        nlp = self.get_nlp()
         doc = nlp(text)
 
         validation = {
@@ -964,7 +1170,7 @@ class ValidationService:
                             return extracted_name
 
         # Fallback: Use SpaCy NER
-        nlp = get_nlp()
+        nlp = self.get_nlp()
         doc = nlp(text)
 
         # Find the first PERSON entity
@@ -1178,7 +1384,7 @@ class ValidationService:
         """Validate Scholarship Application Form content with category-specific rules and dynamic current year."""
         from datetime import datetime
 
-        nlp = get_nlp()
+        nlp = self.get_nlp()
         doc = nlp(text)
 
         # Get current year dynamically
@@ -1357,7 +1563,7 @@ class ValidationService:
                 'feedback': 'Income Bond Paper not required for 1st-year students'
             }
 
-        nlp = get_nlp()
+        nlp = self.get_nlp()
         doc = nlp(text)
 
         validation = {
@@ -1446,7 +1652,7 @@ class ValidationService:
         from datetime import datetime
         import re
 
-        nlp = get_nlp()
+        nlp = self.get_nlp()
         doc = nlp(text)
 
         # Get current year dynamically
@@ -1524,7 +1730,7 @@ class ValidationService:
         from datetime import datetime
         import re
 
-        nlp = get_nlp()
+        nlp = self.get_nlp()
         doc = nlp(text)
 
         # Get current year dynamically
@@ -1674,7 +1880,7 @@ class ValidationService:
                 'feedback': 'Diploma Certificate only required for Lateral Entry students'
             }
 
-        nlp = get_nlp()
+        nlp = self.get_nlp()
         doc = nlp(text)
 
         validation = {
@@ -1760,7 +1966,7 @@ class ValidationService:
                 'feedback': 'Diploma Consolidated Memo only required for Lateral Entry students'
             }
 
-        nlp = get_nlp()
+        nlp = self.get_nlp()
         doc = nlp(text)
 
         validation = {
@@ -1904,7 +2110,7 @@ class ValidationService:
                 'feedback': 'Diploma Bonafide only required for Lateral Entry students'
             }
 
-        nlp = get_nlp()
+        nlp = self.get_nlp()
         doc = nlp(text)
 
         validation = {
@@ -2024,7 +2230,7 @@ class ValidationService:
                 'feedback': 'Diploma Transfer Certificate only required for Lateral Entry students'
             }
 
-        nlp = get_nlp()
+        nlp = self.get_nlp()
         doc = nlp(text)
 
         validation = {
