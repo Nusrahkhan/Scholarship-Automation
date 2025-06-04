@@ -28,7 +28,8 @@ validation_service = ValidationService()
 
 app = Flask(__name__)
 
-with open('config.json', 'r') as f:
+config_path = os.path.join(os.path.dirname(__file__), 'config.json')
+with open(config_path, 'r') as f:
     params = json.load(f)['params']
 
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///scholarship.db'
@@ -773,7 +774,7 @@ def upload_doc():
             return jsonify({
                 'success': False,
                 'error': 'Document verification failed'
-            }), 400
+            }, 400)
             
     except Exception as e:
         print(f"Error verifying document: {str(e)}")
@@ -835,7 +836,7 @@ def upload_doc_year1():
             return jsonify({
                 'success': False,
                 'error': 'Document verification failed'
-            }), 400
+            }, 400)
             
     except Exception as e:
         print(f"Error verifying document: {str(e)}")
