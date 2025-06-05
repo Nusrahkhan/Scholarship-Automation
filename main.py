@@ -13,7 +13,23 @@ from models import db, Student, Admin, Teacher, TeacherUnavailability, Scholarsh
 import sys
 import os
 from sqlalchemy import distinct, extract, desc, func
+from dotenv import load_dotenv
+import codecs
+from dotenv import dotenv_values
 
+# Load environment variables from .env (force override)
+dotenv_path = os.path.join(os.path.dirname(__file__), 'ocr_model', '.env')
+print('[ENV] .env path:', dotenv_path, 'Exists:', os.path.exists(dotenv_path))
+load_dotenv(dotenv_path, override=True)
+print('[ENV] GEMINI_API_KEY loaded:', os.getenv('GEMINI_API_KEY'))
+
+# Print raw .env file contents for debugging
+with codecs.open(dotenv_path, 'r', encoding='utf-8-sig') as f:
+    env_contents = f.read()
+    print('[ENV] Raw .env contents:', repr(env_contents))
+# Print parsed .env values
+parsed_env = dotenv_values(dotenv_path)
+print('[ENV] dotenv_values parsed:', parsed_env)
 
 # Add OCR model to Python path
 ocr_model_path = os.path.join(os.path.dirname(__file__), 'ocr_model')
@@ -71,21 +87,22 @@ def allowed_file(filename):
            filename.rsplit('.', 1)[1].lower() in app.config['ALLOWED_EXTENSIONS']
 
 def process_document_upload(file, document_type):
+    print(f"[UPLOAD] process_document_upload called with file: {file.filename}, type: {document_type}")
     if file and allowed_file(file.filename):
         try:
             filename = secure_filename(file.filename)
             filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            # Ensure upload directory exists
+            os.makedirs(os.path.dirname(filepath), exist_ok=True)
             file.save(filepath)
-            
+            print(f"[UPLOAD] Saved file to: {filepath}")
             # Process document using OCR
             text = ocr_service.extract_text_with_rotation_correction(filepath)
-            
             # Validate extracted text
             validation_result = validation_service.validate_document(text, document_type)
-
             # Clean up the uploaded file
             os.remove(filepath)
-
+            print(f"[UPLOAD] Validation result: {validation_result}")
             return validation_result
         except Exception as e:
             if os.path.exists(filepath):
@@ -290,7 +307,7 @@ def verify_otp():
         return jsonify({
             'message': 'Account verified successfully!',
             'redirect': '/student_dashboard'
-        }), 201
+        }, 201)
 
     except Exception as e:
         db.session.rollback()

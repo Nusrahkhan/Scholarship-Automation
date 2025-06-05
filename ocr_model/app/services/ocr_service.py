@@ -777,6 +777,7 @@ class OCRService:
         """
         Extract text with automatic rotation correction and Gemini integration.
         """
+        print(f"[OCR] Called extract_text_with_rotation_correction on: {file_path}")
         try:
             logger.info(f"Extracting text with rotation correction: {file_path}")
 

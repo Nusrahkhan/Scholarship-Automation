@@ -618,15 +618,14 @@
         input.addEventListener('change', async (e) => {
             if (input.files.length) {
                 const file = input.files[0];
-                const docType = documentTypes[uploadBox.id];
-                
+                const docInfo = documentTypes[uploadBox.id];
+                const docType = docInfo.type;
                 // Show loading state
                 fileName.textContent = 'Verifying document...';
                 uploadContent.classList.add('hidden');
                 uploadPreview.classList.remove('hidden');
                 uploadBox.classList.add('active');
 
-                // ye hai dekho ration card ka skip krne ka function
                 // Skip verification for ration card
                 if (!docInfo.required) {
                     fileName.textContent = file.name;
@@ -635,14 +634,8 @@
                     checkAllRequiredDocumentsVerified();
                     return;
                 }
-                
                 // Verify document
                 const result = await upload_doc(file, docType);
-
-                // ration wala
-                //const result = await upload_doc(file, docInfo.type);
-
-                
                 if (result.success) {
                     fileName.textContent = file.name;
                     checkmark.style.color = '#4cad69'; // Green for success
@@ -654,9 +647,7 @@
                     uploadBox.dataset.verified = 'false';
                     verifiedDocuments.delete(uploadBox.id);
                 }
-
                 checkAllRequiredDocumentsVerified();
-
             }
         });
 
