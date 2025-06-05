@@ -1,15 +1,12 @@
 import re
-import logging
+import os
 import spacy
-
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+import sqlite3
+from datetime import datetime
 
 class ValidationService:
     """Service for validating document content."""
 
-    # Load SpaCy model only once for all instances
     _nlp = None
     @staticmethod
     def get_nlp():
@@ -18,17 +15,10 @@ class ValidationService:
         return ValidationService._nlp
 
     def validate_document(self, text, document_type, student_id=None, student_category=None, gemini_info=None):
-        print("OCR TEXT:", text)
-        """Validate document content based on document type with consistency checks and student category.
-        Optionally uses Gemini's structured output if provided.
-        """
+        """Validate document content based on document type with Gemini-first, OCR-fallback logic."""
         if not text and not gemini_info:
-            return {
-                'status': 'Rejected',
-                'feedback': 'Invalid file attached'
-            }
+            return {'status': 'Rejected', 'feedback': 'No content to validate'}
 
-        # Map document types to validation methods
         validation_methods = {
             'aadhaar': self.validate_aadhaar,
             'allotment_order': self.validate_allotment_order,
@@ -50,1030 +40,389 @@ class ValidationService:
             'le_bonafide': self.validate_le_bonafide,
             'le_transfer_certificate': self.validate_le_transfer_certificate
         }
-
         if document_type not in validation_methods:
-            return {
-                'status': 'Rejected',
-                'feedback': 'Invalid file attached'
-            }
+            return {'status': 'Rejected', 'feedback': 'Unknown document type'}
 
-        # First, check if document is allowed for this student category
-        category_check = self.check_document_category_compatibility(document_type, student_category)
+        # Category compatibility check
+        category_check = self.check_document_category_compatibility(document_type, student_category, gemini_info=gemini_info)
         if category_check['status'] == 'Rejected':
             return category_check
 
-        # Perform document-specific validation with student category and gemini_info
+        # Document-specific validation
         result = validation_methods[document_type](text, student_category, gemini_info=gemini_info)
-
-        # If basic validation failed, return early
         if result['status'] == 'Rejected':
             return result
 
-        # If student_id is provided, perform consistency checks
+        # Consistency check if student_id provided
         if student_id:
-            consistency_result = self.check_consistency(text, document_type, student_id)
-            if consistency_result['status'] == 'Rejected':
-                return consistency_result
-
+            consistency = self.check_consistency(text, document_type, student_id, gemini_info=gemini_info)
+            if consistency['status'] == 'Rejected':
+                return consistency
         return result
 
     def validate_aadhaar(self, text, student_category=None, gemini_info=None):
-        """Validate Aadhaar card content. Uses Gemini structured info if available."""
-        # If Gemini structured info is provided, use it for validation
+        """Validate Aadhaar card content. Gemini-first, fallback to OCR."""
         if gemini_info and isinstance(gemini_info, dict):
-            key_fields = gemini_info.get('key_fields', {})
-            # 100% field coverage: check all possible variants
-            has_name = bool(key_fields.get('name') or key_fields.get('Name'))
-            has_aadhaar_number = bool(key_fields.get('aadhaar_number') or key_fields.get('Aadhaar number') or key_fields.get('aadhaar') or key_fields.get('Aadhaar'))
-            has_dob = bool(key_fields.get('dob') or key_fields.get('date of birth') or key_fields.get('date') or key_fields.get('DOB'))
-            has_gender = bool(key_fields.get('gender') or key_fields.get('Gender'))
-            missing_fields = []
-            if not has_name:
-                missing_fields.append('name')
-            if not has_aadhaar_number:
-                missing_fields.append('Aadhaar number')
-            if not has_dob:
-                missing_fields.append('date of birth')
-            if not has_gender:
-                missing_fields.append('gender')
-            if missing_fields:
-                return {
-                    'status': 'Rejected',
-                    'feedback': f'Invalid file attached (missing: {", ".join(missing_fields)})'
-                }
-            else:
-                return {
-                    'status': 'Approve',
-                    'feedback': 'Uploaded successfully (Gemini)'
-                }
+            kf = gemini_info.get('key_fields', {})
+            missing = []
+            if not (kf.get('name') or kf.get('Name')):
+                missing.append('name')
+            if not (kf.get('aadhaar_number') or kf.get('Aadhaar Number')):
+                missing.append('aadhaar number')
+            if not (kf.get('dob') or kf.get('DOB')):
+                missing.append('date of birth')
+            if not (kf.get('gender') or kf.get('Gender')):
+                missing.append('gender')
+            if missing:
+                return {'status': 'Rejected', 'feedback': f'Invalid file attached (missing: {", ".join(missing)})'}
+            return {'status': 'Approve', 'feedback': 'Uploaded successfully (Gemini)'}
 
-        # Only run NLP if Gemini validation did not return
         nlp = self.get_nlp()
         doc = nlp(text)
-
-        # Initialize validation results
-        validation = {
-            'has_name': False,
-            'has_aadhaar_number': False,
-            'has_dob': False,
-            'has_gender': False,
-            'missing_fields': []
-        }
-
-        # Check for name (PERSON entity)
-        for ent in doc.ents:
-            if ent.label_ == 'PERSON':
-                validation['has_name'] = True
-                break
-
+        validation = {'missing_fields': []}
+        # Name
+        validation['has_name'] = any(ent.label_ == 'PERSON' for ent in doc.ents)
         if not validation['has_name']:
             validation['missing_fields'].append('name')
-
-        # Check for Aadhaar number (12-digit number in format XXXX XXXX XXXX)
-        aadhaar_pattern = r'\d{4}\s\d{4}\s\d{4}'
-        if re.search(aadhaar_pattern, text):
-            validation['has_aadhaar_number'] = True
-        else:
-            validation['missing_fields'].append('Aadhaar number')
-
-        # Check for date of birth
-        dob_found = False
-
-        # Check for DATE entity
-        for ent in doc.ents:
-            if ent.label_ == 'DATE':
-                dob_found = True
-                break
-
-        # Check for common date formats if SpaCy didn't find a DATE entity
+        # Aadhaar number
+        if not re.search(r'\d{4}\s\d{4}\s\d{4}', text):
+            validation['missing_fields'].append('aadhaar number')
+        # DOB
+        dob_found = any(ent.label_ == 'DATE' for ent in doc.ents)
         if not dob_found:
-            date_patterns = [
-                r'\d{2}/\d{2}/\d{4}',  # DD/MM/YYYY
-                r'\d{2}-\d{2}-\d{4}',  # DD-MM-YYYY
-                r'\d{2}\.\d{2}\.\d{4}',  # DD.MM.YYYY
-                r'\d{1,2}/\d{1,2}/\d{4}',  # D/M/YYYY or DD/M/YYYY
-                r'\d{1,2}-\d{1,2}-\d{4}',  # D-M-YYYY or DD-M-YYYY
-            ]
-
-            # Look for DOB-specific patterns
-            dob_patterns = [
-                r'dob\s*[:=]?\s*\d{1,2}[/-]\d{1,2}[/-]\d{4}',  # DOB: DD/MM/YYYY
-                r'date\s+of\s+birth\s*[:=]?\s*\d{1,2}[/-]\d{1,2}[/-]\d{4}',  # Date of Birth: DD/MM/YYYY
-                r'birth\s+date\s*[:=]?\s*\d{1,2}[/-]\d{1,2}[/-]\d{4}',  # Birth Date: DD/MM/YYYY
-            ]
-
-            # First check for explicit DOB patterns
-            for pattern in dob_patterns:
-                if re.search(pattern, text.lower()):
-                    dob_found = True
-                    break
-
-            # If no explicit DOB found, check for any date pattern
-            # but exclude issue dates and other non-DOB dates
-            if not dob_found:
-                for pattern in date_patterns:
-                    matches = re.findall(pattern, text)
-                    for match in matches:
-                        # Skip if it's likely an issue date (after 2000 and recent)
-                        year = int(match.split('/')[-1] if '/' in match else match.split('-')[-1])
-                        if year < 2000:  # Likely a birth year
-                            dob_found = True
-                            break
-                    if dob_found:
-                        break
-
-        validation['has_dob'] = dob_found
-        if not dob_found:
-            validation['missing_fields'].append('date of birth')
-
-        # Check for gender
-        gender_keywords = ['male', 'female', 'other', 'transgender']
-        gender_abbreviations = ['m', 'f', 'o', 't']
-        gender_found = False
-
-        # Check for full gender words
-        for keyword in gender_keywords:
-            if re.search(r'\b' + keyword + r'\b', text.lower()):
-                gender_found = True
-                break
-
-        # Check for gender abbreviations (more common in Aadhaar cards)
-        if not gender_found:
-            for abbrev in gender_abbreviations:
-                # Look for single letter gender indicators
-                if re.search(r'\b' + abbrev + r'\b', text.lower()):
-                    gender_found = True
-                    break
-
-        # Determine overall status
+            if not re.search(r'(\d{2}[/-]\d{2}[/-]\d{4})', text):
+                validation['missing_fields'].append('date of birth')
+        # Gender
+        if not re.search(r'\b(male|female|other|transgender|m|f|o|t)\b', text, re.IGNORECASE):
+            validation['missing_fields'].append('gender')
         if validation['missing_fields']:
-            return {
-                'status': 'Rejected',
-                'feedback': 'Invalid file attached'
-            }
-        else:
-            return {
-                'status': 'Approve',
-                'feedback': 'Uploaded successfully'
-            }
+            return {'status': 'Rejected', 'feedback': f'Invalid file attached (missing: {", ".join(validation["missing_fields"])})'}
+        return {'status': 'Approve', 'feedback': 'Uploaded successfully'}
 
     def validate_allotment_order(self, text, student_category=None, gemini_info=None):
-        """Validate Allotment Order content. Uses Gemini structured info if available."""
+        """Validate Allotment Order. Gemini-first, fallback to OCR."""
         if gemini_info and isinstance(gemini_info, dict):
-            doc_type = gemini_info.get('document_type', '')
-            key_fields = gemini_info.get('key_fields', {})
-            has_heading = 'allotment' in doc_type.lower() or 'allotment' in (key_fields.get('heading', '')).lower()
-            has_college_name = bool(key_fields.get('college_name') or key_fields.get('College Name'))
-            has_name = bool(key_fields.get('name') or key_fields.get('Name'))
-            missing_fields = []
-            if not has_heading:
-                missing_fields.append('PROVISIONAL ALLOTMENT ORDER heading')
-            if not has_college_name:
-                missing_fields.append('college name')
-            if not has_name:
-                missing_fields.append('candidate name')
-            if missing_fields:
-                return {'status': 'Rejected', 'feedback': f'Invalid file attached (missing: {", ".join(missing_fields)})'}
-            else:
-                return {'status': 'Approve', 'feedback': 'Uploaded successfully (Gemini)'}
-
+            kf = gemini_info.get('key_fields', {})
+            missing = []
+            if not (kf.get('heading') and 'allotment' in kf.get('heading', '').lower()):
+                missing.append('allotment order heading')
+            if not (kf.get('college_name') or kf.get('College Name')):
+                missing.append('college name')
+            if not (kf.get('name') or kf.get('Name')):
+                missing.append('candidate name')
+            if missing:
+                return {'status': 'Rejected', 'feedback': f'Invalid file attached (missing: {", ".join(missing)})'}
+            return {'status': 'Approve', 'feedback': 'Uploaded successfully (Gemini)'}
         nlp = self.get_nlp()
         doc = nlp(text)
-
-        # Initialize validation results
-        validation = {
-            'has_heading': False,
-            'has_college_name': False,
-            'has_name': False,
-            'missing_fields': []
-        }
-
-        # Check for heading "PROVISIONAL ALLOTMENT ORDER"
-        if "PROVISIONAL ALLOTMENT ORDER" in text:
-            validation['has_heading'] = True
-        else:
-            validation['missing_fields'].append('PROVISIONAL ALLOTMENT ORDER heading')
-
-        # Check for college name - more flexible matching
-        college_patterns = [
-            "M J COLLEGE OF ENGINEERING AND TECHNOLOGY (MJCT), BANJARA HILLS, HYD",
-            "M J COLLEGE OF ENGINEERING AND TECHNOLOGY",
-            "MJCT",
-            "BANJARA HILLS"
-        ]
-        college_found = False
-        for pattern in college_patterns:
-            if pattern in text:
-                college_found = True
-                break
-
-        validation['has_college_name'] = college_found
-        if not college_found:
+        validation = {'missing_fields': []}
+        # Heading
+        if 'PROVISIONAL ALLOTMENT ORDER' not in text.upper():
+            validation['missing_fields'].append('allotment order heading')
+        # College name
+        if not re.search(r'MJCT|M J COLLEGE|BANJARA HILLS', text, re.IGNORECASE):
             validation['missing_fields'].append('college name')
-
-        # Check for name (PERSON entity)
-        for ent in doc.ents:
-            if ent.label_ == 'PERSON':
-                validation['has_name'] = True
-                break
-
-        if not validation['has_name']:
+        # Name
+        if not any(ent.label_ == 'PERSON' for ent in doc.ents):
             validation['missing_fields'].append('candidate name')
-
-        # Determine overall status
         if validation['missing_fields']:
-            return {
-                'status': 'Rejected',
-                'feedback': 'Invalid file attached'
-            }
-        else:
-            return {
-                'status': 'Approve',
-                'feedback': 'Uploaded successfully'
-            }
+            return {'status': 'Rejected', 'feedback': f'Invalid file attached (missing: {", ".join(validation["missing_fields"])})'}
+        return {'status': 'Approve', 'feedback': 'Uploaded successfully'}
 
     def validate_10th_marks_memo(self, text, student_category=None, gemini_info=None):
-        """Validate 10th Marks Memo content. Uses Gemini structured info if available."""
+        """Validate 10th Marks Memo. Gemini-first, fallback to OCR."""
         if gemini_info and isinstance(gemini_info, dict):
-            key_fields = gemini_info.get('key_fields', {})
-            has_name = bool(key_fields.get('name') or key_fields.get('Name'))
-            has_hall_ticket = bool(key_fields.get('hall_ticket') or key_fields.get('Hall Ticket Number'))
-            has_board_name = bool(key_fields.get('board_name') or key_fields.get('Board Name'))
-            missing_fields = []
-            if not has_name:
-                missing_fields.append('name')
-            if not has_hall_ticket:
-                missing_fields.append('hall ticket number')
-            if not has_board_name:
-                missing_fields.append('board name')
-            if missing_fields:
-                return {'status': 'Rejected', 'feedback': f'Invalid file attached (missing: {", ".join(missing_fields)})'}
-            else:
-                return {'status': 'Approve', 'feedback': 'Uploaded successfully (Gemini)'}
-
+            kf = gemini_info.get('key_fields', {})
+            missing = []
+            if not (kf.get('name') or kf.get('Name')):
+                missing.append('name')
+            if not (kf.get('hall_ticket') or kf.get('Hall Ticket Number')):
+                missing.append('hall ticket number')
+            if not (kf.get('board_name') or kf.get('Board Name')):
+                missing.append('board name')
+            if missing:
+                return {'status': 'Rejected', 'feedback': f'Invalid file attached (missing: {", ".join(missing)})'}
+            return {'status': 'Approve', 'feedback': 'Uploaded successfully (Gemini)'}
         nlp = self.get_nlp()
         doc = nlp(text)
-
-        validation = {
-            'has_name': False,
-            'has_hall_ticket': False,
-            'has_board_name': False,
-            'missing_fields': []
-        }
-
-        # Check for name
-        for ent in doc.ents:
-            if ent.label_ == 'PERSON':
-                validation['has_name'] = True
-                break
-
-        if not validation['has_name']:
+        validation = {'missing_fields': []}
+        # Name
+        if not any(ent.label_ == 'PERSON' for ent in doc.ents):
             validation['missing_fields'].append('name')
-
-        # Check for hall ticket number
-        hall_ticket_pattern = r'[A-Za-z0-9]{10,11}'
-        if re.search(hall_ticket_pattern, text):
-            validation['has_hall_ticket'] = True
-        else:
+        # Hall ticket
+        if not re.search(r'[A-Za-z0-9]{10,11}', text):
             validation['missing_fields'].append('hall ticket number')
-
-        # Check for board name - improved pattern matching
-        board_patterns = [
-            r'\bssc\b',
-            r'\bcbse\b',
-            r'\bicse\b',
-            r'\binternational\s+gcse\b',
-            r'\bedexcel\s+international\s+gcse\b',
-            r'\bpearson\s+edexcel\b',
-            r'\bib\b',
-            r'\bstate\s+board\b'
-        ]
-        board_found = False
-        for pattern in board_patterns:
-            if re.search(pattern, text, re.IGNORECASE):
-                board_found = True
-                break
-
-        validation['has_board_name'] = board_found
-        if not board_found:
+        # Board name
+        if not re.search(r'ssc|cbse|icse|international gcse|edexcel|pearson|ib|state board', text, re.IGNORECASE):
             validation['missing_fields'].append('board name')
-
         if validation['missing_fields']:
-            return {
-                'status': 'Rejected',
-                'feedback': 'Invalid file attached'
-            }
-        else:
-            return {
-                'status': 'Approve',
-                'feedback': 'Uploaded successfully'
-            }
+            return {'status': 'Rejected', 'feedback': f'Invalid file attached (missing: {", ".join(validation["missing_fields"])})'}
+        return {'status': 'Approve', 'feedback': 'Uploaded successfully'}
 
     def validate_intermediate_marks_memo(self, text, student_category=None, gemini_info=None):
-        """Validate Intermediate Marks Memo content. Uses Gemini structured info if available."""
+        """Validate Intermediate Marks Memo. Gemini-first, fallback to OCR."""
         if gemini_info and isinstance(gemini_info, dict):
-            key_fields = gemini_info.get('key_fields', {})
-            has_heading = 'intermediate' in (gemini_info.get('document_type', '')).lower() or 'intermediate' in (key_fields.get('heading', '')).lower()
-            has_name = bool(key_fields.get('name') or key_fields.get('Name'))
-            has_father_name = bool(key_fields.get('father_name') or key_fields.get('Father Name'))
-            has_mother_name = bool(key_fields.get('mother_name') or key_fields.get('Mother Name'))
-            missing_fields = []
-            if not has_heading:
-                missing_fields.append('INTERMEDIATE PASS CERTIFICATE-CUM-MEMORANDUM OF MARKS heading')
-            if not has_name:
-                missing_fields.append('name')
-            if not has_father_name:
-                missing_fields.append("father's name")
-            if not has_mother_name:
-                missing_fields.append("mother's name")
-            if missing_fields:
-                return {'status': 'Rejected', 'feedback': f'Invalid file attached (missing: {", ".join(missing_fields)})'}
-            else:
-                return {'status': 'Approve', 'feedback': 'Uploaded successfully (Gemini)'}
-
+            kf = gemini_info.get('key_fields', {})
+            missing = []
+            if not (kf.get('heading') and 'intermediate' in kf.get('heading', '').lower()):
+                missing.append('intermediate marks memo heading')
+            if not (kf.get('name') or kf.get('Name')):
+                missing.append('name')
+            if not (kf.get('father_name') or kf.get('Father Name')):
+                missing.append("father's name")
+            if not (kf.get('mother_name') or kf.get('Mother Name')):
+                missing.append("mother's name")
+            if missing:
+                return {'status': 'Rejected', 'feedback': f'Invalid file attached (missing: {", ".join(missing)})'}
+            return {'status': 'Approve', 'feedback': 'Uploaded successfully (Gemini)'}
         nlp = self.get_nlp()
         doc = nlp(text)
-
-        # Initialize validation results
-        validation = {
-            'has_heading': False,
-            'has_name': False,
-            'has_father_name': False,
-            'has_mother_name': False,
-            'missing_fields': []
-        }
-
-        # Check for heading - improved pattern matching
-        heading_patterns = [
-            "INTERMEDIATE PASS CERTIFICATE-CUM-MEMORANDUM OF MARKS",
-            "INTERMEDIATE.*PASS.*CERTIFICATE.*MEMORANDUM.*MARKS",
-            "INTERMEDIATE.*CERTIFICATE.*MARKS",
-            "PASS CERTIFICATE-CUM-MEMORANDUM OF MARKS"
-        ]
-        heading_found = False
-        for pattern in heading_patterns:
-            if re.search(pattern, text, re.IGNORECASE):
-                heading_found = True
-                break
-
-        validation['has_heading'] = heading_found
-        if not heading_found:
-            validation['missing_fields'].append('INTERMEDIATE PASS CERTIFICATE-CUM-MEMORANDUM OF MARKS heading')
-
-        # Check for name
-        for ent in doc.ents:
-            if ent.label_ == 'PERSON':
-                validation['has_name'] = True
-                break
-
-        if not validation['has_name']:
+        validation = {'missing_fields': []}
+        # Heading
+        if not re.search(r'INTERMEDIATE.*PASS.*CERTIFICATE.*MEMORANDUM.*MARKS', text, re.IGNORECASE):
+            validation['missing_fields'].append('intermediate marks memo heading')
+        # Name
+        if not any(ent.label_ == 'PERSON' for ent in doc.ents):
             validation['missing_fields'].append('name')
-
-        # Check for father's name
-        father_pattern = r"father['']?s?\s+name\s*[:=]?\s*([A-Z][a-z]+(\s+[A-Z][a-z]+)*)"
-        if re.search(father_pattern, text, re.IGNORECASE):
-            validation['has_father_name'] = True
-        else:
+        # Father's name
+        if not re.search(r"father(?:'s|’s|s)? name", text, re.IGNORECASE):
             validation['missing_fields'].append("father's name")
-
-        # Check for mother's name
-        mother_pattern = r"mother['']?s?\s+name\s*[:=]?\s*([A-Z][a-z]+(\s+[A-Z][a-z]+)*)"
-        if re.search(mother_pattern, text, re.IGNORECASE):
-            validation['has_mother_name'] = True
-        else:
+        # Mother's name
+        if not re.search(r"mother(?:'s|’s|s)? name", text, re.IGNORECASE):
             validation['missing_fields'].append("mother's name")
-
         if validation['missing_fields']:
-            return {
-                'status': 'Rejected',
-                'feedback': 'Invalid file attached'
-            }
-        else:
-            return {
-                'status': 'Approve',
-                'feedback': 'Uploaded successfully'
-            }
+            return {'status': 'Rejected', 'feedback': f'Invalid file attached (missing: {", ".join(validation["missing_fields"])})'}
+        return {'status': 'Approve', 'feedback': 'Uploaded successfully'}
 
     def validate_school_bonafide(self, text, student_category=None, gemini_info=None):
-        """Validate School Bonafide Certificate content. Uses Gemini structured info if available."""
+        """Validate School Bonafide Certificate. Gemini-first, fallback to OCR."""
         if gemini_info and isinstance(gemini_info, dict):
-            doc_type = gemini_info.get('document_type', '')
-            key_fields = gemini_info.get('key_fields', {})
-            has_heading = 'bonafide' in doc_type.lower() or 'bonafide' in (key_fields.get('heading', '')).lower()
-            has_name = bool(key_fields.get('name') or key_fields.get('Name'))
-            has_school_name = bool(key_fields.get('school_name') or key_fields.get('School Name'))
-            missing_fields = []
-            if not has_heading:
-                missing_fields.append('bonafide certificate heading')
-            if not has_name:
-                missing_fields.append('name')
-            if not has_school_name:
-                missing_fields.append('school name')
-            if missing_fields:
-                return {'status': 'Rejected', 'feedback': f'Invalid file attached (missing: {", ".join(missing_fields)})'}
-            else:
-                return {'status': 'Approve', 'feedback': 'Uploaded successfully (Gemini)'}
-
+            kf = gemini_info.get('key_fields', {})
+            missing = []
+            if not (kf.get('heading') and 'bonafide' in kf.get('heading', '').lower()):
+                missing.append('bonafide certificate heading')
+            if not (kf.get('name') or kf.get('Name')):
+                missing.append('name')
+            if not (kf.get('school_name') or kf.get('School Name')):
+                missing.append('school name')
+            if missing:
+                return {'status': 'Rejected', 'feedback': f'Invalid file attached (missing: {", ".join(missing)})'}
+            return {'status': 'Approve', 'feedback': 'Uploaded successfully (Gemini)'}
         nlp = self.get_nlp()
         doc = nlp(text)
-
-        # Initialize validation results
-        validation = {
-            'has_heading': False,
-            'has_date': False,
-            'has_name': False,
-            'has_school_name': False,
-            'missing_fields': []
-        }
-
-        # Check for heading
-        bonafide_headings = ["BONAFIDE CERTIFICATE", "CONDUCT CERTIFICATE", "BONAFIDE & CONDUCT CERTIFICATE"]
-        heading_found = False
-        for heading in bonafide_headings:
-            if heading in text:
-                heading_found = True
-                break
-
-        validation['has_heading'] = heading_found
-        if not heading_found:
+        validation = {'missing_fields': []}
+        # Heading
+        if not re.search(r'BONAFIDE CERTIFICATE', text, re.IGNORECASE):
             validation['missing_fields'].append('bonafide certificate heading')
-
-        # Check for name
-        for ent in doc.ents:
-            if ent.label_ == 'PERSON':
-                validation['has_name'] = True
-                break
-
-        if not validation['has_name']:
+        # Name
+        if not any(ent.label_ == 'PERSON' for ent in doc.ents):
             validation['missing_fields'].append('name')
-
-        # Check for school name
-        for ent in doc.ents:
-            if ent.label_ == 'ORG' or 'SCHOOL' in ent.text:
-                validation['has_school_name'] = True
-                break
-
-        if not validation['has_school_name']:
+        # School name
+        if not re.search(r'school', text, re.IGNORECASE):
             validation['missing_fields'].append('school name')
-
         if validation['missing_fields']:
-            return {
-                'status': 'Rejected',
-                'feedback': 'Invalid file attached'
-            }
-        else:
-            return {
-                'status': 'Approve',
-                'feedback': 'Uploaded successfully'
-            }
+            return {'status': 'Rejected', 'feedback': f'Invalid file attached (missing: {", ".join(validation["missing_fields"])})'}
+        return {'status': 'Approve', 'feedback': 'Uploaded successfully'}
 
     def validate_intermediate_bonafide(self, text, student_category=None, gemini_info=None):
-        """Validate Intermediate Bonafide Certificate content. Uses Gemini structured info if available."""
+        """Validate Intermediate Bonafide Certificate. Gemini-first, fallback to OCR."""
         if gemini_info and isinstance(gemini_info, dict):
-            doc_type = gemini_info.get('document_type', '')
-            key_fields = gemini_info.get('key_fields', {})
-            has_heading = 'bonafide' in doc_type.lower() or 'bonafide' in (key_fields.get('heading', '')).lower()
-            has_name = bool(key_fields.get('name') or key_fields.get('Name'))
-            has_college_name = bool(key_fields.get('college_name') or key_fields.get('College Name'))
-            missing_fields = []
-            if not has_heading:
-                missing_fields.append('bonafide certificate heading')
-            if not has_name:
-                missing_fields.append('name')
-            if not has_college_name:
-                missing_fields.append('college name')
-            if missing_fields:
-                return {'status': 'Rejected', 'feedback': f'Invalid file attached (missing: {", ".join(missing_fields)})'}
-            else:
-                return {'status': 'Approve', 'feedback': 'Uploaded successfully (Gemini)'}
-
+            kf = gemini_info.get('key_fields', {})
+            missing = []
+            if not (kf.get('heading') and 'bonafide' in kf.get('heading', '').lower()):
+                missing.append('bonafide certificate heading')
+            if not (kf.get('name') or kf.get('Name')):
+                missing.append('name')
+            if not (kf.get('college_name') or kf.get('College Name')):
+                missing.append('college name')
+            if missing:
+                return {'status': 'Rejected', 'feedback': f'Invalid file attached (missing: {", ".join(missing)})'}
+            return {'status': 'Approve', 'feedback': 'Uploaded successfully (Gemini)'}
         nlp = self.get_nlp()
         doc = nlp(text)
-
-        # Initialize validation results
-        validation = {
-            'has_heading': False,
-            'has_date': False,
-            'has_name': False,
-            'has_college_name': False,
-            'missing_fields': []
-        }
-
-        # Check for heading
-        bonafide_headings = ["BONAFIDE CERTIFICATE", "CONDUCT CERTIFICATE", "BONAFIDE & CONDUCT CERTIFICATE"]
-        heading_found = False
-        for heading in bonafide_headings:
-            if heading in text:
-                heading_found = True
-                break
-
-        validation['has_heading'] = heading_found
-        if not heading_found:
+        validation = {'missing_fields': []}
+        # Heading
+        if not re.search(r'BONAFIDE CERTIFICATE', text, re.IGNORECASE):
             validation['missing_fields'].append('bonafide certificate heading')
-
-        # Check for name
-        for ent in doc.ents:
-            if ent.label_ == 'PERSON':
-                validation['has_name'] = True
-                break
-
-        if not validation['has_name']:
+        # Name
+        if not any(ent.label_ == 'PERSON' for ent in doc.ents):
             validation['missing_fields'].append('name')
-
-        # Check for college name
-        for ent in doc.ents:
-            if ent.label_ == 'ORG' or 'COLLEGE' in ent.text:
-                validation['has_college_name'] = True
-                break
-
-        if not validation['has_college_name']:
+        # College name
+        if not re.search(r'college', text, re.IGNORECASE):
             validation['missing_fields'].append('college name')
-
         if validation['missing_fields']:
-            return {
-                'status': 'Rejected',
-                'feedback': 'Invalid file attached'
-            }
-        else:
-            return {
-                'status': 'Approve',
-                'feedback': 'Uploaded successfully'
-            }
+            return {'status': 'Rejected', 'feedback': f'Invalid file attached (missing: {", ".join(validation["missing_fields"])})'}
+        return {'status': 'Approve', 'feedback': 'Uploaded successfully'}
 
     def validate_intermediate_transfer_certificate(self, text, student_category=None, gemini_info=None):
-        """Validate Intermediate Transfer Certificate content. Uses Gemini structured info if available."""
+        """Validate Intermediate Transfer Certificate. Gemini-first, fallback to OCR."""
         if gemini_info and isinstance(gemini_info, dict):
-            doc_type = gemini_info.get('document_type', '')
-            key_fields = gemini_info.get('key_fields', {})
-            has_heading = 'transfer certificate' in doc_type.lower() or 'transfer certificate' in (key_fields.get('heading', '')).lower()
-            has_name = bool(key_fields.get('name') or key_fields.get('Name'))
-            has_college_name = bool(key_fields.get('college_name') or key_fields.get('College Name'))
-            missing_fields = []
-            if not has_heading:
-                missing_fields.append('TRANSFER CERTIFICATE heading')
-            if not has_college_name:
-                missing_fields.append('college name')
-            if not has_name:
-                missing_fields.append('name')
-            if missing_fields:
-                return {'status': 'Rejected', 'feedback': f'Invalid file attached (missing: {", ".join(missing_fields)})'}
-            else:
-                return {'status': 'Approve', 'feedback': 'Uploaded successfully (Gemini)'}
-
+            kf = gemini_info.get('key_fields', {})
+            missing = []
+            if not (kf.get('heading') and 'transfer certificate' in kf.get('heading', '').lower()):
+                missing.append('transfer certificate heading')
+            if not (kf.get('college_name') or kf.get('College Name')):
+                missing.append('college name')
+            if not (kf.get('name') or kf.get('Name')):
+                missing.append('name')
+            if missing:
+                return {'status': 'Rejected', 'feedback': f'Invalid file attached (missing: {", ".join(missing)})'}
+            return {'status': 'Approve', 'feedback': 'Uploaded successfully (Gemini)'}
         nlp = self.get_nlp()
         doc = nlp(text)
-
-        # Initialize validation results
-        validation = {
-            'has_heading': False,
-            'has_college_name': False,
-            'has_name': False,
-            'has_admission_number': False,
-            'missing_fields': []
-        }
-
-        # Check for heading
-        if "TRANSFER CERTIFICATE" in text:
-            validation['has_heading'] = True
-        else:
-            validation['missing_fields'].append('TRANSFER CERTIFICATE heading')
-
-        # Check for college name
-        college_found = False
-        for ent in doc.ents:
-            if ent.label_ == 'ORG':
-                college_found = True
-                break
-
-        # Also check for common college keywords if NER didn't find it
-        if not college_found:
-            college_keywords = ['college', 'university', 'institute', 'school']
-            for keyword in college_keywords:
-                if re.search(r'\b' + keyword + r'\b', text.lower()):
-                    college_found = True
-                    break
-
-        validation['has_college_name'] = college_found
-        if not college_found:
+        validation = {'missing_fields': []}
+        # Heading
+        if not re.search(r'TRANSFER CERTIFICATE', text, re.IGNORECASE):
+            validation['missing_fields'].append('transfer certificate heading')
+        # College name
+        if not re.search(r'college', text, re.IGNORECASE):
             validation['missing_fields'].append('college name')
-
-        # Check for name
-        for ent in doc.ents:
-            if ent.label_ == 'PERSON':
-                validation['has_name'] = True
-                break
-
-        if not validation['has_name']:
+        # Name
+        if not any(ent.label_ == 'PERSON' for ent in doc.ents):
             validation['missing_fields'].append('name')
-
         if validation['missing_fields']:
-            return {
-                'status': 'Rejected',
-                'feedback': 'Invalid file attached'
-            }
-        else:
-            return {
-                'status': 'Approve',
-                'feedback': 'Uploaded successfully'
-            }
+            return {'status': 'Rejected', 'feedback': f'Invalid file attached (missing: {", ".join(validation["missing_fields"])})'}
+        return {'status': 'Approve', 'feedback': 'Uploaded successfully'}
 
     def validate_be_bonafide_certificate(self, text, student_category=None, gemini_info=None):
-        """Validate BE Bonafide Certificate content. Uses Gemini structured info if available."""
+        """Validate BE Bonafide Certificate. Gemini-first, fallback to OCR."""
         if gemini_info and isinstance(gemini_info, dict):
-            doc_type = gemini_info.get('document_type', '')
-            key_fields = gemini_info.get('key_fields', {})
-            has_college_name = bool(key_fields.get('college_name') or key_fields.get('College Name'))
-            has_heading = 'bonafide' in doc_type.lower() or 'bonafide' in (key_fields.get('heading', '')).lower()
-            has_date = bool(key_fields.get('date') or key_fields.get('Date'))
-            missing_fields = []
-            if not has_college_name:
-                missing_fields.append('MUFFAKHAM JAH COLLEGE OF ENGINEERING & TECHNOLOGY')
-            if not has_heading:
-                missing_fields.append('Bonafide/Conduct Certificate heading')
-            if not has_date:
-                from datetime import datetime
-                current_year = datetime.now().year
-                missing_fields.append(f'Please ensure the date is of current year ({current_year})')
-            if missing_fields:
-                return {'status': 'Rejected', 'feedback': f'Invalid file attached. Missing fields: {", ".join(missing_fields)}'}
-            else:
-                return {'status': 'Approve', 'feedback': 'Uploaded successfully (Gemini)'}
-
+            kf = gemini_info.get('key_fields', {})
+            missing = []
+            if not (kf.get('college_name') or kf.get('College Name')):
+                missing.append('college name')
+            if not (kf.get('heading') and 'bonafide' in kf.get('heading', '').lower()):
+                missing.append('bonafide certificate heading')
+            if not (kf.get('date') or kf.get('Date')):
+                missing.append('date')
+            if missing:
+                return {'status': 'Rejected', 'feedback': f'Invalid file attached (missing: {", ".join(missing)})'}
+            return {'status': 'Approve', 'feedback': 'Uploaded successfully (Gemini)'}
         nlp = self.get_nlp()
-        doc = nlp(text)
-
-        # Initialize validation results
-        validation = {
-            'has_college_name': False,
-            'has_heading': False,
-            'has_date': False,
-            'missing_fields': []
-        }
-
-        # Check for college name - more flexible patterns
-        college_patterns = [
-            "MUFFAKHAM JAH COLLEGE OF ENGINEERING & TECHNOLOGY",
-            "MUFFAKHAM JAH",
-            "College of Engineering & Technology",
-            "MUFFAKHAMJAH",  # OCR might remove spaces
-            "Engineering & Technology"
-        ]
-        college_found = False
-        for pattern in college_patterns:
-            if pattern.upper() in text.upper():
-                college_found = True
-                break
-
-        validation['has_college_name'] = college_found
-        if not college_found:
-            validation['missing_fields'].append('MUFFAKHAM JAH COLLEGE OF ENGINEERING & TECHNOLOGY')
-
-        # Check for heading - more flexible patterns
-        heading_patterns = [
-            "Bonafide/Conduct Certificate",
-            "BONAFIDE",
-            "CONDUCT CERTIFICATE",
-            "CERTIFICATE",
-            "Bonafide Certificate",
-            "Conduct Certificate"
-        ]
-        heading_found = False
-        for pattern in heading_patterns:
-            if pattern.upper() in text.upper():
-                heading_found = True
-                break
-
-        validation['has_heading'] = heading_found
-        if not heading_found:
-            validation['missing_fields'].append('Bonafide/Conduct Certificate heading')
-
-        # Check for date - must be from current year (2025) to ensure certificate is recent
-        date_found = False
-
-        # Get current year
-        from datetime import datetime
-        current_year = datetime.now().year
-
-        # Check for current year (2025) in the text
-        current_year_patterns = [
-            rf'{current_year}',  # Current year (e.g., 2025)
-            rf'\d{{1,2}}[/-]\d{{1,2}}[/-]{current_year}',  # Date with current year (e.g., 15/01/2025)
-            rf'{current_year}[-/]\d{{1,2}}[-/]\d{{1,2}}',  # Year first format (e.g., 2025/01/15)
-        ]
-
-        for pattern in current_year_patterns:
-            if re.search(pattern, text):
-                date_found = True
-                break
-
-        # Also check for DATE entities that contain current year
-        if not date_found:
-            for ent in doc.ents:
-                if ent.label_ == 'DATE' and str(current_year) in ent.text:
-                    date_found = True
-                    break
-
-        validation['has_date'] = date_found
-        if not date_found:
-            validation['missing_fields'].append(f'Please ensure the date is of current year ({current_year})')
-
-        # Note: Name and roll number validation removed for higher success rate
-        # - Name recognition is complex due to handwritten/stylized text OCR challenges
-        # - Roll number format XXXX.XX.XXX.XXX (e.g., 1604.23.733.008) is typically handwritten
-        # - Focusing on reliable printed text elements: college name, heading, and date
-
+        validation = {'missing_fields': []}
+        # College name
+        if not re.search(r'MUFFAKHAM JAH COLLEGE|MUFFAKHAMJAH|ENGINEERING & TECHNOLOGY', text, re.IGNORECASE):
+            validation['missing_fields'].append('college name')
+        # Heading
+        if not re.search(r'BONAFIDE|CONDUCT CERTIFICATE', text, re.IGNORECASE):
+            validation['missing_fields'].append('bonafide certificate heading')
+        # Date (current year)
+        if str(datetime.now().year) not in text:
+            validation['missing_fields'].append(f'date ({datetime.now().year})')
         if validation['missing_fields']:
-            return {
-                'status': 'Rejected',
-                'feedback': (f'Invalid file attached. Missing fields: {", ".join(validation["missing_fields"])}')
-                # 'feedback': 'Invalid file attached'
-            }
-        else:
-            return {
-                'status': 'Approve',
-                'feedback': 'Uploaded successfully'
-            }
+            return {'status': 'Rejected', 'feedback': f'Invalid file attached (missing: {", ".join(validation["missing_fields"])})'}
+        return {'status': 'Approve', 'feedback': 'Uploaded successfully'}
 
     def validate_income_certificate(self, text, student_category=None, gemini_info=None):
-        """Validate Income Certificate content. Uses Gemini structured info if available."""
+        """Validate Income Certificate. Gemini-first, fallback to OCR."""
         if gemini_info and isinstance(gemini_info, dict):
-            doc_type = gemini_info.get('document_type', '')
-            key_fields = gemini_info.get('key_fields', {})
-            has_heading = 'income certificate' in doc_type.lower() or 'income certificate' in (key_fields.get('heading', '')).lower()
-            has_name = bool(key_fields.get('name') or key_fields.get('Name'))
-            has_application_number = bool(key_fields.get('application_number') or key_fields.get('Application Number'))
-            has_date = bool(key_fields.get('date') or key_fields.get('Date'))
-            missing_fields = []
-            if not has_heading:
-                missing_fields.append('INCOME CERTIFICATE heading')
-            if not has_name:
-                missing_fields.append('name')
-            if not has_application_number:
-                missing_fields.append('application number (14-digit)')
-            if not has_date:
-                missing_fields.append('date')
-            if missing_fields:
-                return {'status': 'Rejected', 'feedback': f'Invalid file attached (missing: {", ".join(missing_fields)})'}
-            else:
-                return {'status': 'Approve', 'feedback': 'Uploaded successfully (Gemini)'}
-
+            kf = gemini_info.get('key_fields', {})
+            missing = []
+            if not (kf.get('heading') and 'income certificate' in kf.get('heading', '').lower()):
+                missing.append('income certificate heading')
+            if not (kf.get('name') or kf.get('Name')):
+                missing.append('name')
+            if not (kf.get('application_number') or kf.get('Application Number')):
+                missing.append('application number')
+            if not (kf.get('date') or kf.get('Date')):
+                missing.append('date')
+            if missing:
+                return {'status': 'Rejected', 'feedback': f'Invalid file attached (missing: {", ".join(missing)})'}
+            return {'status': 'Approve', 'feedback': 'Uploaded successfully (Gemini)'}
         nlp = self.get_nlp()
         doc = nlp(text)
-
-        # Initialize validation results
-        validation = {
-            'has_heading': False,
-            'has_name': False,
-            'has_application_number': False,
-            'has_date': False,
-            'missing_fields': []
-        }
-
-        # Check for heading - improved pattern matching with OCR tolerance
-        heading_patterns = [
-            r"INCOME\s+CERTIFICATE",
-            r"GOVERNMENT.*TELANGANA.*REVENUE.*DEPARTMENT",
-            r"REVENUE.*DEPARTMENT.*INCOME",
-            r"TELANGANA.*INCOME.*CERTIFICATE",
-            r"REVENUE\s+DEPARTMENT",  # More flexible
-            r"covernment.*TeLaNcana.*REVENUE",  # OCR errors
-            r"TELANGANA.*REVENUE",
-            r"GOVERNMENT.*REVENUE"
-        ]
-        heading_found = False
-        for pattern in heading_patterns:
-            if re.search(pattern, text, re.IGNORECASE):
-                heading_found = True
-                break
-
-        validation['has_heading'] = heading_found
-        if not heading_found:
-            validation['missing_fields'].append('INCOME CERTIFICATE heading')
-
-        # Check for name
-        for ent in doc.ents:
-            if ent.label_ == 'PERSON':
-                validation['has_name'] = True
-                break
-
-        if not validation['has_name']:
+        validation = {'missing_fields': []}
+        # Heading
+        if not re.search(r'INCOME CERTIFICATE', text, re.IGNORECASE):
+            validation['missing_fields'].append('income certificate heading')
+        # Name
+        if not any(ent.label_ == 'PERSON' for ent in doc.ents):
             validation['missing_fields'].append('name')
-
-        # Check for application number (14-digit alphanumeric)
-        app_number_pattern = r'[A-Za-z0-9]{14}'
-        if re.search(app_number_pattern, text):
-            validation['has_application_number'] = True
-        else:
-            validation['missing_fields'].append('application number (14-digit)')
-
-        # Check for date
-        date_found = False
-        for ent in doc.ents:
-            if ent.label_ == 'DATE':
-                date_found = True
-                break
-
-        if not date_found:
-            date_patterns = [r'\d{2}/\d{2}/\d{4}', r'\d{2}-\d{2}-\d{4}', r'\d{2}\.\d{2}\.\d{4}']
-            for pattern in date_patterns:
-                if re.search(pattern, text):
-                    date_found = True
-                    break
-
-        validation['has_date'] = date_found
-        if not date_found:
+        # Application number
+        if not re.search(r'[A-Za-z0-9]{14}', text):
+            validation['missing_fields'].append('application number')
+        # Date
+        if not re.search(r'\d{2}[/-]\d{2}[/-]\d{4}', text):
             validation['missing_fields'].append('date')
-
         if validation['missing_fields']:
-            return {
-                'status': 'Rejected',
-                'feedback': 'Invalid file attached'
-            }
-        else:
-            return {
-                'status': 'Approve',
-                'feedback': 'Uploaded successfully'
-            }
+            return {'status': 'Rejected', 'feedback': f'Invalid file attached (missing: {", ".join(validation["missing_fields"])})'}
+        return {'status': 'Approve', 'feedback': 'Uploaded successfully'}
 
     def validate_student_bank_pass_book(self, text, student_category=None, gemini_info=None):
-        """Validate Student Bank Pass Book content. Uses Gemini structured info if available."""
+        """Validate Student Bank Pass Book. Gemini-first, fallback to OCR."""
         if gemini_info and isinstance(gemini_info, dict):
-            key_fields = gemini_info.get('key_fields', {})
-            has_bank_name = bool(key_fields.get('bank_name') or key_fields.get('Bank Name'))
-            has_name = bool(key_fields.get('name') or key_fields.get('Name'))
-            has_account_number = bool(key_fields.get('account_number') or key_fields.get('Account Number'))
-            missing_fields = []
-            if not has_bank_name:
-                missing_fields.append('bank name')
-            if not has_name:
-                missing_fields.append('name')
-            if not has_account_number:
-                missing_fields.append('account number')
-            if missing_fields:
-                return {'status': 'Rejected', 'feedback': f'Invalid file attached (missing: {", ".join(missing_fields)})'}
-            else:
-                return {'status': 'Approve', 'feedback': 'Uploaded successfully (Gemini)'}
-
+            kf = gemini_info.get('key_fields', {})
+            missing = []
+            if not (kf.get('bank_name') or kf.get('Bank Name')):
+                missing.append('bank name')
+            if not (kf.get('name') or kf.get('Name')):
+                missing.append('name')
+            if not (kf.get('account_number') or kf.get('Account Number')):
+                missing.append('account number')
+            if missing:
+                return {'status': 'Rejected', 'feedback': f'Invalid file attached (missing: {", ".join(missing)})'}
+            return {'status': 'Approve', 'feedback': 'Uploaded successfully (Gemini)'}
         nlp = self.get_nlp()
         doc = nlp(text)
-
-        # Initialize validation results
-        validation = {
-            'has_bank_name': False,
-            'has_name': False,
-            'has_account_number': False,
-            'missing_fields': []
-        }
-
-        # Check for bank name
-        for ent in doc.ents:
-            if ent.label_ == 'ORG' or 'BANK' in ent.text:
-                validation['has_bank_name'] = True
-                break
-
-        if not validation['has_bank_name']:
+        validation = {'missing_fields': []}
+        # Bank name
+        if not re.search(r'bank', text, re.IGNORECASE):
             validation['missing_fields'].append('bank name')
-
-        # Check for name
-        for ent in doc.ents:
-            if ent.label_ == 'PERSON':
-                validation['has_name'] = True
-                break
-
-        if not validation['has_name']:
+        # Name
+        if not any(ent.label_ == 'PERSON' for ent in doc.ents):
             validation['missing_fields'].append('name')
-
-        # Check for account number (9-18 digits)
-        account_pattern = r'\d{9,18}'
-        if re.search(account_pattern, text):
-            validation['has_account_number'] = True
-        else:
+        # Account number
+        if not re.search(r'\d{9,18}', text):
             validation['missing_fields'].append('account number')
-
         if validation['missing_fields']:
-            return {
-                'status': 'Rejected',
-                'feedback': 'Invalid file attached'
-            }
-        else:
-            return {
-                'status': 'Approve',
-                'feedback': 'Uploaded successfully'
-            }
+            return {'status': 'Rejected', 'feedback': f'Invalid file attached (missing: {", ".join(validation["missing_fields"])})'}
+        return {'status': 'Approve', 'feedback': 'Uploaded successfully'}
 
     def validate_latest_sem_memo(self, text, student_category=None, gemini_info=None):
-        """Validate Latest Sem Memo content. Uses Gemini structured info if available."""
+        """Validate Latest Sem Memo. Gemini-first, fallback to OCR."""
         if gemini_info and isinstance(gemini_info, dict):
-            key_fields = gemini_info.get('key_fields', {})
-            has_university_name = bool(key_fields.get('university_name') or key_fields.get('University Name'))
-            has_examination_name = bool(key_fields.get('examination_name') or key_fields.get('Examination Name'))
-            has_name = bool(key_fields.get('name') or key_fields.get('Name'))
-            has_roll_no = bool(key_fields.get('roll_no') or key_fields.get('Roll No'))
-            missing_fields = []
-            if not has_university_name:
-                missing_fields.append('OSMANIA UNIVERSITY')
-            if not has_examination_name:
-                missing_fields.append('examination name')
-            if not has_name:
-                missing_fields.append('name')
-            if not has_roll_no:
-                missing_fields.append('roll no')
-            if missing_fields:
-                return {'status': 'Rejected', 'feedback': f'Invalid file attached (missing: {", ".join(missing_fields)})'}
-            else:
-                return {'status': 'Approve', 'feedback': 'Uploaded successfully (Gemini)'}
-
+            kf = gemini_info.get('key_fields', {})
+            missing = []
+            if not (kf.get('university_name') or kf.get('University Name')):
+                missing.append('university name')
+            if not (kf.get('examination_name') or kf.get('Examination Name')):
+                missing.append('examination name')
+            if not (kf.get('name') or kf.get('Name')):
+                missing.append('name')
+            if not (kf.get('roll_no') or kf.get('Roll No')):
+                missing.append('roll no')
+            if missing:
+                return {'status': 'Rejected', 'feedback': f'Invalid file attached (missing: {", ".join(missing)})'}
+            return {'status': 'Approve', 'feedback': 'Uploaded successfully (Gemini)'}
         nlp = self.get_nlp()
         doc = nlp(text)
-
-        validation = {
-            'has_university_name': False,
-            'has_examination_name': False,
-            'has_name': False,
-            'has_roll_no': False,
-            'missing_fields': []
-        }
-
-        # Check for university name - with OCR error tolerance
-        university_patterns = [
-            "OSMANIA UNIVERSITY",
-            r"\$MANIA\s+UNIVERSITY",  # OCR error: $ instead of O
-            r"OSMANIA\s+UNIVERSITY",
-            r"OSMANLA\s+UNIVERSITY",  # OCR error: L instead of I
-            r"0SMANIA\s+UNIVERSITY",  # OCR error: 0 instead of O
-            r"QSMANIA\s+UNIVERSITY"   # OCR error: Q instead of O
-        ]
-        university_found = False
-        for pattern in university_patterns:
-            if re.search(pattern, text, re.IGNORECASE):
-                university_found = True
-                break
-
-        validation['has_university_name'] = university_found
-        if not university_found:
-            validation['missing_fields'].append('OSMANIA UNIVERSITY')
-
-        # Check for examination name
-        exam_keywords = ['semester', 'annual', 'examination']
-        exam_found = False
-        for keyword in exam_keywords:
-            if re.search(r'\b' + keyword + r'\b', text.lower()):
-                exam_found = True
-                break
-
-        validation['has_examination_name'] = exam_found
-        if not exam_found:
+        validation = {'missing_fields': []}
+        # University name
+        if not re.search(r'OSMANIA UNIVERSITY', text, re.IGNORECASE):
+            validation['missing_fields'].append('university name')
+        # Examination name
+        if not re.search(r'semester|annual|examination', text, re.IGNORECASE):
             validation['missing_fields'].append('examination name')
-
-        # Check for name
-        for ent in doc.ents:
-            if ent.label_ == 'PERSON':
-                validation['has_name'] = True
-                break
-
-        if not validation['has_name']:
+        # Name
+        if not any(ent.label_ == 'PERSON' for ent in doc.ents):
             validation['missing_fields'].append('name')
-
-        # Check for roll no - improved pattern matching
-        roll_no_patterns = [
-            r'roll\s+no\s*[:=.]?\s*([A-Za-z0-9]+)',
-            r'rollno\s*[:=.]?\s*([A-Za-z0-9]+)',
-            r'roll\s*[:=.]?\s*([A-Za-z0-9]+)',
-            r'ROLLNO\s*[:=.]?\s*([A-Za-z0-9]+)',
-            r'roll\s+number\s*[:=.]?\s*([A-Za-z0-9]+)'
-        ]
-        roll_found = False
-        for pattern in roll_no_patterns:
-            if re.search(pattern, text, re.IGNORECASE):
-                roll_found = True
-                break
-
-        validation['has_roll_no'] = roll_found
-        if not roll_found:
+        # Roll no
+        if not re.search(r'roll\s*no|rollno|roll\s*number', text, re.IGNORECASE):
             validation['missing_fields'].append('roll no')
-
         if validation['missing_fields']:
-            return {
-                'status': 'Rejected',
-                'feedback': 'Invalid file attached'
-            }
+            return {'status': 'Rejected', 'feedback': f'Invalid file attached (missing: {", ".join(validation["missing_fields"])})'}
+        return {'status': 'Approve', 'feedback': 'Uploaded successfully'}
+
+    def check_consistency(self, text, document_type, student_id=None, gemini_info=None):
+        """Check consistency of Name and Roll No across documents for a student. Uses Gemini structured info if available."""
+        # Use Gemini info if provided
+        if gemini_info and isinstance(gemini_info, dict):
+            extracted_name = gemini_info.get('key_fields', {}).get('name') or gemini_info.get('key_fields', {}).get('Name')
+            extracted_roll_no = gemini_info.get('key_fields', {}).get('roll_no') or gemini_info.get('key_fields', {}).get('Roll No')
         else:
-            return {
-                'status': 'Approve',
-                'feedback': 'Uploaded successfully'
-            }
-
-    def check_consistency(self, text, document_type, student_id):
-        """Check consistency of Name and Roll No across documents for a student."""
-        import sqlite3
-        import os
-        from dotenv import load_dotenv
-
-        load_dotenv()
-
-        # Extract name and roll no from current document
-        extracted_name = self.extract_name(text)
-        extracted_roll_no = self.extract_roll_no(text, document_type)
+            # Extract name and roll no from current document
+            extracted_name = self.extract_name(text, document_type, gemini_info=gemini_info)
+            extracted_roll_no = self.extract_roll_no(text, document_type, gemini_info=gemini_info)
 
         # Connect to database
         db_path = os.getenv('DATABASE_PATH', 'app/db/results.db')
@@ -1099,7 +448,7 @@ class ValidationService:
 
                 # Check name consistency
                 if extracted_name and reference_name:
-                    if not self.names_match(extracted_name, reference_name):
+                    if not self.names_match(extracted_name, reference_name, gemini_info=gemini_info):
                         conn.close()
                         return {
                             'status': 'Rejected',
@@ -1128,8 +477,14 @@ class ValidationService:
         finally:
             conn.close()
 
-    def extract_name(self, text, document_type=None):
-        """Extract name from text using enhanced pattern matching."""
+    def extract_name(self, text, document_type=None, gemini_info=None):
+        """Extract name from text using enhanced pattern matching. Uses Gemini info if available."""
+
+        # Use Gemini info if provided
+        if gemini_info and isinstance(gemini_info, dict):
+            name = gemini_info.get('key_fields', {}).get('name') or gemini_info.get('key_fields', {}).get('Name')
+            if name:
+                return name.strip()
 
         # For BE Bonafide certificates, use specific pattern
         if document_type == 'be_bonafide_certificate':
@@ -1180,8 +535,13 @@ class ValidationService:
 
         return None
 
-    def extract_roll_no(self, text, document_type):
-        """Extract roll number from text based on document type."""
+    def extract_roll_no(self, text, document_type, gemini_info=None):
+        """Extract roll number from text based on document type. Uses Gemini info if available."""
+        if gemini_info and isinstance(gemini_info, dict):
+            roll_no = gemini_info.get('key_fields', {}).get('roll_no') or gemini_info.get('key_fields', {}).get('Roll No')
+            if roll_no:
+                return roll_no.strip()
+
         # Roll No appears only in Latest Sem Memo (removed BE Bonafide due to handwritten text recognition issues)
         if document_type not in ['latest_sem_memo']:
             return None
@@ -1202,8 +562,13 @@ class ValidationService:
 
         return None
 
-    def names_match(self, name1, name2):
-        """Check if two names match (allowing for minor variations)."""
+    def names_match(self, name1, name2, gemini_info=None):
+        """Check if two names match (allowing for minor variations). Uses Gemini info if available."""
+        if gemini_info and isinstance(gemini_info, dict):
+            # If Gemini provides a match/validation, trust it
+            if gemini_info.get('names_match') is not None:
+                return bool(gemini_info['names_match'])
+
         if not name1 or not name2:
             return False
 
@@ -1225,17 +590,15 @@ class ValidationService:
 
         return False
 
-    def get_required_documents(self, student_category, course_year=None):
+    def get_required_documents(self, student_category, course_year=None, gemini_info=None):
         """
-        Determine required documents based on student category and course year.
-
-        Args:
-            student_category: '1st_year', 'lateral_entry', or '2_3_4_year'
-            course_year: Course year from student_info.reference_course_year (for 2_3_4_year)
-
-        Returns:
-            dict: Required and optional documents for the category
+        Determine required documents based on student category and course year. Uses Gemini info if available.
         """
+        if gemini_info and isinstance(gemini_info, dict):
+            req_docs = gemini_info.get('required_documents')
+            if req_docs:
+                return req_docs
+
         if student_category == '1st_year':
             return {
                 'required': [
@@ -1326,7 +689,15 @@ class ValidationService:
         else:
             return {'required': [], 'not_required': [], 'optional': []}
 
-    def check_document_category_compatibility(self, document_type, student_category):
+    def check_document_category_compatibility(self, document_type, student_category, gemini_info=None):
+        """
+        Check if a document type is compatible with the student category. Uses Gemini info if available.
+        """
+        if gemini_info and isinstance(gemini_info, dict):
+            compatible = gemini_info.get('category_compatible')
+            if compatible is not None:
+                return {'status': 'Approve' if compatible else 'Rejected', 'feedback': 'Gemini category compatibility'}
+
         """
         Check if a document type is compatible with the student category.
 
@@ -1380,15 +751,19 @@ class ValidationService:
         # Document is compatible with this category
         return {'status': 'Approve', 'feedback': 'Document compatible with student category'}
 
-    def validate_scholarship_application_form(self, text, student_category=None):
-        """Validate Scholarship Application Form content with category-specific rules and dynamic current year."""
-        from datetime import datetime
+    def validate_scholarship_application_form(self, text, student_category=None, gemini_info=None):
+        """Validate Scholarship Application Form content with category-specific rules and dynamic current year. Uses Gemini info if available."""
+        if gemini_info and isinstance(gemini_info, dict):
+            status = gemini_info.get('status')
+            feedback = gemini_info.get('feedback')
+            if status and feedback:
+                return {'status': status, 'feedback': feedback}
 
         nlp = self.get_nlp()
         doc = nlp(text)
 
         # Get current year dynamically
-        current_year = datetime.now().year
+        current_year = str(datetime.now().year)
 
         validation = {
             'has_heading': False,
@@ -1554,18 +929,27 @@ class ValidationService:
                 'feedback': 'Uploaded successfully'
             }
 
-    def validate_income_bond_paper(self, text, student_category=None):
-        """Validate Income Bond Paper content (not required for 1st-year students)."""
-        # Check if this document is allowed for the student category
-        if student_category == '1st_year':
-            return {
-                'status': 'Rejected',
-                'feedback': 'Income Bond Paper not required for 1st-year students'
-            }
+    def validate_income_bond_paper(self, text, student_category=None, gemini_info=None):
+        """Validate Income Bond Paper content (not required for 1st-year students). Uses Gemini info if available."""
+        if gemini_info and isinstance(gemini_info, dict):
+            missing_fields = []
+            if not gemini_info.get('has_heading'):
+                missing_fields.append('Income Bond Paper heading')
+            if not gemini_info.get('has_name'):
+                missing_fields.append('name')
+            if not gemini_info.get('has_amount'):
+                missing_fields.append('amount')
+            if not gemini_info.get('has_signature'):
+                missing_fields.append('signature')
+            if missing_fields:
+                return {'status': 'Rejected', 'feedback': f'Missing fields: {", ".join(missing_fields)} (Gemini)'}
+            else:
+                return {'status': 'Approve', 'feedback': 'Uploaded successfully (Gemini)'}
 
         nlp = self.get_nlp()
         doc = nlp(text)
 
+        # Initialize validation results
         validation = {
             'has_heading': False,
             'has_name': False,
@@ -1647,8 +1031,21 @@ class ValidationService:
                 'feedback': 'Uploaded successfully'
             }
 
-    def validate_scholarship_acknowledgement_form(self, text, student_category=None):
-        """Validate Scholarship Acknowledgement Form content - simplified to check for 'Acknowledgement' keyword."""
+    def validate_scholarship_acknowledgement_form(self, text, student_category=None, gemini_info=None):
+        """Validate Scholarship Acknowledgement Form content - simplified to check for 'Acknowledgement' keyword. Uses Gemini info if available."""
+        if gemini_info and isinstance(gemini_info, dict):
+            missing_fields = []
+            if not gemini_info.get('has_acknowledgement'):
+                missing_fields.append('Acknowledgement keyword')
+            if not gemini_info.get('has_name'):
+                missing_fields.append('student name')
+            if not gemini_info.get('has_current_year'):
+                missing_fields.append('current year')
+            if missing_fields:
+                return {'status': 'Rejected', 'feedback': f'Missing fields: {", ".join(missing_fields)} (Gemini)'}
+            else:
+                return {'status': 'Approve', 'feedback': 'Uploaded successfully (Gemini)'}
+
         from datetime import datetime
         import re
 
@@ -1725,164 +1122,48 @@ class ValidationService:
                 'feedback': 'Uploaded successfully'
             }
 
-    def validate_attendance_sheet_form(self, text, student_category=None):
-        """Validate Attendance Sheet/Form content with dynamic current year and >75% attendance."""
+    def validate_attendance_sheet_form(self, text, student_category=None, gemini_info=None):
+        """Validate Attendance Sheet Form. Gemini first, fallback to simple OCR date check."""
         from datetime import datetime
-        import re
+        current_year = str(datetime.now().year)
+        if gemini_info and isinstance(gemini_info, dict):
+            key_fields = gemini_info.get('key_fields', {})
+            if not (key_fields.get('date') or key_fields.get('Date')):
+                return {'status': 'Rejected', 'feedback': 'Invalid file attached (missing: date)'}
+            # Optionally check year
+            if current_year not in str(key_fields.get('date', '')):
+                return {'status': 'Rejected', 'feedback': f'Date must be in current year ({current_year})'}
+            return {'status': 'Approve', 'feedback': 'Uploaded successfully (Gemini)'}
+        # OCR fallback: just check for a date in the current year
+        date_pattern = rf'\d{{2}}[/-]\d{{2}}[/-]{current_year}'
+        if not re.search(date_pattern, text):
+            return {'status': 'Rejected', 'feedback': f'Date must be in current year ({current_year})'}
+        return {'status': 'Approve', 'feedback': 'Uploaded successfully'}
 
-        nlp = self.get_nlp()
-        doc = nlp(text)
-
-        # Get current year dynamically
-        current_year = datetime.now().year
-
-        validation = {
-            'has_name': False,
-            'has_current_year': False,
-            'has_valid_attendance': False,
-            'missing_fields': []
-        }
-
-        # Check for student name appearing at least once
-        person_entities = []
-        for ent in doc.ents:
-            if ent.label_ == 'PERSON':
-                person_entities.append(ent.text.strip())
-
-        # Also check for common name patterns in attendance forms
-        name_patterns = [
-            r'student\s+name[:\s]*([A-Z][A-Za-z\s]+)',
-            r'name[:\s]*([A-Z][A-Za-z\s]+)',
-            r'mr\.?\s+([A-Z][A-Za-z\s]+)',
-            r'ms\.?\s+([A-Z][A-Za-z\s]+)'
-        ]
-
-        extracted_names = []
-        for pattern in name_patterns:
-            matches = re.findall(pattern, text, re.IGNORECASE)
-            extracted_names.extend(matches)
-
-        # Combine SpaCy and pattern-based name extraction
-        all_names = person_entities + [name.strip() for name in extracted_names if len(name.strip()) > 2]
-
-        if len(all_names) >= 1:
-            validation['has_name'] = True
-        else:
-            validation['missing_fields'].append('student name')
-
-        # Check for current year or previous year (for academic year documents)
-        year_patterns = [
-            rf'\b{current_year}\b',  # Current year as standalone
-            rf'\b{current_year-1}\b',  # Previous year (for academic year documents)
-            rf'year[:\s]*{current_year}',
-            rf'year[:\s]*{current_year-1}',
-            rf'{current_year}[-/]\d{{1,2}}[-/]\d{{1,2}}',  # Date format with current year
-            rf'{current_year-1}[-/]\d{{1,2}}[-/]\d{{1,2}}'  # Date format with previous year
-        ]
-        year_found = False
-        for pattern in year_patterns:
-            if re.search(pattern, text):
-                year_found = True
-                break
-
-        # If year not found in main text, try upper right corner extraction
-        if not year_found:
-            try:
-                from services.ocr_service import OCRService
-                ocr_service = OCRService()
-                # Try to extract date from upper right corner (where year info is typically located)
-                corner_date = ocr_service.extract_date_from_upper_right(text)  # Pass the file path if available
-                if corner_date:
-                    for pattern in year_patterns:
-                        if re.search(pattern, corner_date):
-                            year_found = True
-                            break
-            except Exception as e:
-                # Continue with main validation if corner extraction fails
-                pass
-
-        validation['has_current_year'] = year_found
-        if not year_found:
-            validation['missing_fields'].append(f'current year ({current_year})')
-
-        # Check for attendance percentage ≥75% (enhanced patterns)
-        percentage_patterns = [
-            r'(\d{1,3})%',  # e.g., 85%
-            r'(\d{1,3})\s*percent',  # e.g., 85 percent
-            r'attendance[:\s]*(\d{1,3})%',
-            r'attendance[:\s]*(\d{1,3})\s*percent',
-            r'(\d{1,3})\s*%\s*attendance',
-            r'(\d{1,3})\s*percent\s*attendance',
-            # Enhanced patterns for garbled text
-            r'pemcentager[:\s=]*(\d{1,3})',  # Garbled "percentage"
-            r'percentager[:\s=]*(\d{1,3})',  # Extra 'r'
-            r'percentage[:\s=]*(\d{1,3})',  # Standard
-            r'altendanee[:\s]*pemcentager[:\s=]*(\d{1,3})',  # Garbled attendance + percentage
-            r'attendance[:\s]*percentage[:\s=]*(\d{1,3})',  # Standard
-            # Number-dash patterns (like "37-7" meaning 77%)
-            r'(\d{1,2})-(\d{1})',  # e.g., "37-7" = 77%
-            r'(\d{1,2})\.(\d{1})',  # e.g., "37.7" = 77%
-            # Flexible number patterns near attendance
-            r'attendance.*?(\d{2,3})',  # Any 2-3 digit number after attendance
-            r'(\d{2,3}).*?attendance',  # Any 2-3 digit number before attendance
-        ]
-
-        valid_attendance = False
-        found_percentages = []
-
-        for pattern in percentage_patterns:
-            matches = re.findall(pattern, text, re.IGNORECASE)
-            for match in matches:
-                try:
-                    if isinstance(match, tuple):
-                        # Handle dash patterns like "37-7" = 77%
-                        if len(match) == 2:
-                            first_part = int(match[0])
-                            second_part = int(match[1])
-                            # Combine as "first_part + second_part" (e.g., 37-7 = 77)
-                            percentage = first_part + second_part
-                        else:
-                            percentage = int(match[0])
-                    else:
-                        percentage = int(match)
-
-                    found_percentages.append(percentage)
-                    if percentage >= 30:  # Lowered threshold for testing (was 75%)
-                        valid_attendance = True
-                except (ValueError, IndexError):
-                    continue
-
-        validation['has_valid_attendance'] = valid_attendance
-        if not valid_attendance:
-            if found_percentages:
-                max_found = max(found_percentages)
-                validation['missing_fields'].append(f'attendance percentage ≥75% (found {max_found}%, need ≥75%)')
+    def validate_diploma_certificate(self, text, student_category=None, gemini_info=None):
+        """Validate Diploma Certificate content (for Lateral Entry students). Uses Gemini info if available."""
+        if gemini_info and isinstance(gemini_info, dict):
+            missing_fields = []
+            if not gemini_info.get('has_diploma_heading'):
+                missing_fields.append('diploma certificate heading')
+            if not gemini_info.get('has_institution_name'):
+                missing_fields.append('institution name')
+            if not gemini_info.get('has_name'):
+                missing_fields.append('student name')
+            # Flexible: Pass if at least 2/3
+            criteria_met = sum([
+                gemini_info.get('has_diploma_heading'),
+                gemini_info.get('has_institution_name'),
+                gemini_info.get('has_name')
+            ])
+            if criteria_met >= 2:
+                return {'status': 'Approve', 'feedback': 'Uploaded successfully (Gemini)'}
             else:
-                validation['missing_fields'].append('attendance percentage ≥75%')
-
-        if validation['missing_fields']:
-            return {
-                'status': 'Rejected',
-                'feedback': 'Invalid file attached'
-            }
-        else:
-            return {
-                'status': 'Approve',
-                'feedback': 'Uploaded successfully'
-            }
-
-    def validate_diploma_certificate(self, text, student_category=None):
-        """Validate Diploma Certificate content (for Lateral Entry students)."""
-        # Check if this document is allowed for the student category
-        if student_category and student_category != 'lateral_entry':
-            return {
-                'status': 'Rejected',
-                'feedback': 'Diploma Certificate only required for Lateral Entry students'
-            }
-
+                return {'status': 'Rejected', 'feedback': f'Missing fields: {", ".join(missing_fields)} (Gemini)'}
         nlp = self.get_nlp()
         doc = nlp(text)
 
+        # Initialize validation results
         validation = {
             'has_diploma_heading': False,
             'has_institution_name': False,
@@ -1957,15 +1238,26 @@ class ValidationService:
                 'feedback': 'Invalid file attached'
             }
 
-    def validate_le_diploma_consolidated_memo(self, text, student_category=None):
-        """Validate LE Diploma Consolidated Memo content (refined for Lateral Entry students)."""
-        # Check if this document is allowed for the student category
-        if student_category and student_category != 'lateral_entry':
-            return {
-                'status': 'Rejected',
-                'feedback': 'Diploma Consolidated Memo only required for Lateral Entry students'
-            }
-
+    def validate_le_diploma_consolidated_memo(self, text, student_category=None, gemini_info=None):
+        """Validate LE Diploma Consolidated Memo content (refined for Lateral Entry students). Uses Gemini info if available."""
+        if gemini_info and isinstance(gemini_info, dict):
+            missing_fields = []
+            if not gemini_info.get('has_top_heading'):
+                missing_fields.append('institutional heading')
+            if not gemini_info.get('has_box_heading'):
+                missing_fields.append('consolidated memorandum heading')
+            if not gemini_info.get('has_name'):
+                missing_fields.append('candidate name')
+            # Flexible: Pass if at least 1/3
+            criteria_met = sum([
+                gemini_info.get('has_top_heading'),
+                gemini_info.get('has_box_heading'),
+                gemini_info.get('has_name')
+            ])
+            if criteria_met >= 1:
+                return {'status': 'Approve', 'feedback': 'Uploaded successfully (Gemini)'}
+            else:
+                return {'status': 'Rejected', 'feedback': f'Missing fields: {", ".join(missing_fields)} (Gemini)'}
         nlp = self.get_nlp()
         doc = nlp(text)
 
@@ -2101,15 +1393,32 @@ class ValidationService:
                 'feedback': 'Invalid file attached'
             }
 
-    def validate_le_bonafide(self, text, student_category=None):
-        """Validate LE Bonafide content (refined for Lateral Entry students)."""
-        # Check if this document is allowed for the student category
-        if student_category and student_category != 'lateral_entry':
-            return {
-                'status': 'Rejected',
-                'feedback': 'Diploma Bonafide only required for Lateral Entry students'
-            }
-
+    def validate_le_bonafide(self, text, student_category=None, gemini_info=None):
+        """Validate LE Bonafide content (refined for Lateral Entry students). Uses Gemini info if available."""
+        if gemini_info and isinstance(gemini_info, dict):
+            missing_fields = []
+            if not gemini_info.get('has_odc_number'):
+                missing_fields.append('ODC Number')
+            if not gemini_info.get('has_certify_name'):
+                missing_fields.append('certification statement')
+            if not gemini_info.get('has_top_heading'):
+                missing_fields.append('institutional heading')
+            if not gemini_info.get('telangana_found'):
+                missing_fields.append('Telangana reference')
+            if not gemini_info.get('bonafide_found'):
+                missing_fields.append('bonafide/certificate keyword')
+            # Flexible: Pass if at least 3/5
+            criteria_met = sum([
+                gemini_info.get('has_odc_number'),
+                gemini_info.get('has_certify_name'),
+                gemini_info.get('has_top_heading'),
+                gemini_info.get('telangana_found'),
+                gemini_info.get('bonafide_found')
+            ])
+            if criteria_met >= 3:
+                return {'status': 'Approve', 'feedback': 'Uploaded successfully (Gemini)'}
+            else:
+                return {'status': 'Rejected', 'feedback': f'Missing fields: {", ".join(missing_fields)} (Gemini)'}
         nlp = self.get_nlp()
         doc = nlp(text)
 
@@ -2221,25 +1530,29 @@ class ValidationService:
                 'feedback': 'Invalid file attached'
             }
 
-    def validate_le_transfer_certificate(self, text, student_category=None):
-        """Validate LE Transfer Certificate content (refined for Lateral Entry students)."""
-        # Check if this document is allowed for the student category
-        if student_category and student_category != 'lateral_entry':
-            return {
-                'status': 'Rejected',
-                'feedback': 'Diploma Transfer Certificate only required for Lateral Entry students'
-            }
-
+    def validate_le_transfer_certificate(self, text, student_category=None, gemini_info=None):
+        """Validate LE Transfer Certificate content (refined for Lateral Entry students). Uses Gemini info if available."""
+        if gemini_info and isinstance(gemini_info, dict):
+            missing_fields = []
+            if not gemini_info.get('has_polytechnic_heading'):
+                missing_fields.append('polytechnic/institution heading')
+            if not gemini_info.get('has_transfer_certificate_heading'):
+                missing_fields.append('transfer certificate heading')
+            if not gemini_info.get('has_name'):
+                missing_fields.append('student name')
+            # Flexible: Pass if at least 1/3
+            criteria_met = sum([
+                gemini_info.get('has_polytechnic_heading'),
+                gemini_info.get('has_transfer_certificate_heading'),
+                gemini_info.get('has_name')
+            ])
+            if criteria_met >= 1:
+                return {'status': 'Approve', 'feedback': 'Uploaded successfully (Gemini)'}
+            else:
+                return {'status': 'Rejected', 'feedback': f'Missing fields: {", ".join(missing_fields)} (Gemini)'}
         nlp = self.get_nlp()
         doc = nlp(text)
-
-        validation = {
-            'has_polytechnic_heading': False,
-            'has_transfer_certificate_heading': False,
-            'has_name': False,
-            'missing_fields': []
-        }
-
+        validation = {'missing_fields': []}
         # Check for main heading with "Polytechnic" (very flexible patterns)
         polytechnic_patterns = [
             r'polytechnic',
