@@ -7,11 +7,13 @@ The Scholarship Automation System is a web-based platform designed to simplify a
 
 ## Current Process
 
-![alt text](image.png)
+![Current Process Diagram](./assets/image.png)
+
 
 ## 🎯 Problem Statement
 
-![alt text](image-1.png)
+![Problem Statement Diagram](./assets/image-1.png)
+
 
 ## ✨ Features
 ### 📱 For Students
