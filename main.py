@@ -442,36 +442,87 @@ def admin_dashboard():
         return redirect(url_for('admin_login'))
 
     try:
-        # Get statistics
-        total_applications = ScholarshipApplication.query.count()
-        pending_applications = ScholarshipApplication.query.filter_by(scholarship_state='pending').count()
-        
-        # Get today's approved applications
-        today = datetime.now().date()
-        approved_today = ScholarshipApplication.query\
-            .filter(
-                ScholarshipApplication.scholarship_state == 'approved',
-                func.date(ScholarshipApplication.created_at) == today
-            ).count()
 
-        # Get recent applications
-        recent_applications = ScholarshipApplication.query\
-            .order_by(ScholarshipApplication.created_at.desc())\
-            .limit(5)\
-            .all()
+        # Get today's appointments
+        today = datetime.now().date()
+        # Get today's appointments with join to get student and application details
+        recent_appointments = db.session.query(
+            Appointment, 
+            ScholarshipApplication, Student
+        ).join(
+            ScholarshipApplication,
+            Appointment.application_id == ScholarshipApplication.id
+        ).join(
+            Student,
+            func.substr(Student.email, 1, func.instr('@', Student.email) - 1) == ScholarshipApplication.roll_number
+        ).filter(
+            Appointment.appointment_date == today
+        ).order_by(Appointment.time_slot).all()
+
+        # Count total appointments for today
+        today_appointments = len(recent_appointments)
+
+
+        # Count pending appointments (state is 'appointment_booked')
+        pending_appointments = sum(
+            1 for _, app, _ in recent_appointments 
+            if app.scholarship_state == 'appointment_booked'
+        )
+
+        # Count completed appointments
+        completed_appointments = sum(
+            1 for _, app, _ in recent_appointments 
+            if app.scholarship_state == 'completed'
+        )
+
+
+        # Format appointments for template
+        formatted_appointments = [{
+            'student_name': student.username,
+            'roll_number': student.roll_number,
+            'branch': application.branch,
+            'year': application.year,
+            'time_slot': appointment.time_slot,
+            'status': application.scholarship_state,
+            'application_id': application.id,
+            'appointment_id': appointment.id
+        } for appointment, application, student in recent_appointments]
+
 
         return render_template(
             'admin_dashboard.html',
             username=session.get('admin_id'),
-            total_applications=total_applications,
-            pending_applications=pending_applications,
-            approved_today=approved_today,
-            recent_applications=recent_applications
+            total_appointments=today_appointments,
+            pending_appointments=pending_appointments,
+            completed_appointments=completed_appointments,
+            recent_appointments=formatted_appointments
         )
 
     except Exception as e:
         print(f"Error loading admin dashboard: {str(e)}")
         return redirect(url_for('admin_login'))
+    
+# Add new route to handle appointment completion
+@app.route('/complete_appointment/<string:application_id>', methods=['POST'])
+def complete_appointment(application_id):
+    if 'admin_id' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    try:
+        # Update application state
+        application = ScholarshipApplication.query.get_or_404(application_id)
+        application.scholarship_state = 'completed'
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'message': 'Application marked as completed'
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error completing appointment: {str(e)}")
+        return jsonify({'error': str(e)}), 500
     
 
 #student dashboard route
