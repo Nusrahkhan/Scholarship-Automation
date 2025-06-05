@@ -78,6 +78,8 @@ class ValidationService:
             return {'status': 'Approve', 'feedback': 'Uploaded successfully (Gemini)'}
 
         nlp = self.get_nlp()
+        if not isinstance(text, str):
+            return {'status': 'Rejected', 'feedback': 'Invalid input: text must be a string'}
         doc = nlp(text)
         validation = {'missing_fields': []}
         # Name
@@ -114,6 +116,8 @@ class ValidationService:
                 return {'status': 'Rejected', 'feedback': f'Invalid file attached (missing: {", ".join(missing)})'}
             return {'status': 'Approve', 'feedback': 'Uploaded successfully (Gemini)'}
         nlp = self.get_nlp()
+        if not isinstance(text, str):
+            return {'status': 'Rejected', 'feedback': 'Invalid input: text must be a string'}
         doc = nlp(text)
         validation = {'missing_fields': []}
         # Heading
@@ -144,6 +148,8 @@ class ValidationService:
                 return {'status': 'Rejected', 'feedback': f'Invalid file attached (missing: {", ".join(missing)})'}
             return {'status': 'Approve', 'feedback': 'Uploaded successfully (Gemini)'}
         nlp = self.get_nlp()
+        if not isinstance(text, str):
+            return {'status': 'Rejected', 'feedback': 'Invalid input: text must be a string'}
         doc = nlp(text)
         validation = {'missing_fields': []}
         # Name
@@ -176,6 +182,8 @@ class ValidationService:
                 return {'status': 'Rejected', 'feedback': f'Invalid file attached (missing: {", ".join(missing)})'}
             return {'status': 'Approve', 'feedback': 'Uploaded successfully (Gemini)'}
         nlp = self.get_nlp()
+        if not isinstance(text, str):
+            return {'status': 'Rejected', 'feedback': 'Invalid input: text must be a string'}
         doc = nlp(text)
         validation = {'missing_fields': []}
         # Heading
@@ -209,6 +217,8 @@ class ValidationService:
                 return {'status': 'Rejected', 'feedback': f'Invalid file attached (missing: {", ".join(missing)})'}
             return {'status': 'Approve', 'feedback': 'Uploaded successfully (Gemini)'}
         nlp = self.get_nlp()
+        if not isinstance(text, str):
+            return {'status': 'Rejected', 'feedback': 'Invalid input: text must be a string'}
         doc = nlp(text)
         validation = {'missing_fields': []}
         # Heading
@@ -239,6 +249,8 @@ class ValidationService:
                 return {'status': 'Rejected', 'feedback': f'Invalid file attached (missing: {", ".join(missing)})'}
             return {'status': 'Approve', 'feedback': 'Uploaded successfully (Gemini)'}
         nlp = self.get_nlp()
+        if not isinstance(text, str):
+            return {'status': 'Rejected', 'feedback': 'Invalid input: text must be a string'}
         doc = nlp(text)
         validation = {'missing_fields': []}
         # Heading
@@ -269,6 +281,8 @@ class ValidationService:
                 return {'status': 'Rejected', 'feedback': f'Invalid file attached (missing: {", ".join(missing)})'}
             return {'status': 'Approve', 'feedback': 'Uploaded successfully (Gemini)'}
         nlp = self.get_nlp()
+        if not isinstance(text, str):
+            return {'status': 'Rejected', 'feedback': 'Invalid input: text must be a string'}
         doc = nlp(text)
         validation = {'missing_fields': []}
         # Heading
@@ -299,18 +313,17 @@ class ValidationService:
                 return {'status': 'Rejected', 'feedback': f'Invalid file attached (missing: {", ".join(missing)})'}
             return {'status': 'Approve', 'feedback': 'Uploaded successfully (Gemini)'}
         nlp = self.get_nlp()
-        validation = {'missing_fields': []}
+        if not isinstance(text, str):
+            return {'status': 'Rejected', 'feedback': 'Invalid input: text must be a string'}
         # College name
         if not re.search(r'MUFFAKHAM JAH COLLEGE|MUFFAKHAMJAH|ENGINEERING & TECHNOLOGY', text, re.IGNORECASE):
-            validation['missing_fields'].append('college name')
+            return {'status': 'Rejected', 'feedback': 'Invalid file attached'}
         # Heading
         if not re.search(r'BONAFIDE|CONDUCT CERTIFICATE', text, re.IGNORECASE):
-            validation['missing_fields'].append('bonafide certificate heading')
+            return {'status': 'Rejected', 'feedback': 'Invalid file attached'}
         # Date (current year)
         if str(datetime.now().year) not in text:
-            validation['missing_fields'].append(f'date ({datetime.now().year})')
-        if validation['missing_fields']:
-            return {'status': 'Rejected', 'feedback': f'Invalid file attached (missing: {", ".join(validation["missing_fields"])})'}
+            return {'status': 'Rejected', 'feedback': 'Invalid file attached'}
         return {'status': 'Approve', 'feedback': 'Uploaded successfully'}
 
     def validate_income_certificate(self, text, student_category=None, gemini_info=None):
@@ -330,6 +343,8 @@ class ValidationService:
                 return {'status': 'Rejected', 'feedback': f'Invalid file attached (missing: {", ".join(missing)})'}
             return {'status': 'Approve', 'feedback': 'Uploaded successfully (Gemini)'}
         nlp = self.get_nlp()
+        if not isinstance(text, str):
+            return {'status': 'Rejected', 'feedback': 'Invalid input: text must be a string'}
         doc = nlp(text)
         validation = {'missing_fields': []}
         # Heading
@@ -363,6 +378,8 @@ class ValidationService:
                 return {'status': 'Rejected', 'feedback': f'Invalid file attached (missing: {", ".join(missing)})'}
             return {'status': 'Approve', 'feedback': 'Uploaded successfully (Gemini)'}
         nlp = self.get_nlp()
+        if not isinstance(text, str):
+            return {'status': 'Rejected', 'feedback': 'Invalid input: text must be a string'}
         doc = nlp(text)
         validation = {'missing_fields': []}
         # Bank name
@@ -395,6 +412,8 @@ class ValidationService:
                 return {'status': 'Rejected', 'feedback': f'Invalid file attached (missing: {", ".join(missing)})'}
             return {'status': 'Approve', 'feedback': 'Uploaded successfully (Gemini)'}
         nlp = self.get_nlp()
+        if not isinstance(text, str):
+            return {'status': 'Rejected', 'feedback': 'Invalid input: text must be a string'}
         doc = nlp(text)
         validation = {'missing_fields': []}
         # University name
@@ -527,7 +546,8 @@ class ValidationService:
         # Fallback: Use SpaCy NER
         nlp = self.get_nlp()
         doc = nlp(text)
-
+        if not isinstance(text, str):
+            return None
         # Find the first PERSON entity
         for ent in doc.ents:
             if ent.label_ == 'PERSON':
@@ -1162,7 +1182,8 @@ class ValidationService:
                 return {'status': 'Rejected', 'feedback': f'Missing fields: {", ".join(missing_fields)} (Gemini)'}
         nlp = self.get_nlp()
         doc = nlp(text)
-
+        if not isinstance(text, str):
+            return {'status': 'Rejected', 'feedback': 'Invalid input: text must be a string'}
         # Initialize validation results
         validation = {
             'has_diploma_heading': False,
@@ -1260,7 +1281,8 @@ class ValidationService:
                 return {'status': 'Rejected', 'feedback': f'Missing fields: {", ".join(missing_fields)} (Gemini)'}
         nlp = self.get_nlp()
         doc = nlp(text)
-
+        if not isinstance(text, str):
+            return {'status': 'Rejected', 'feedback': 'Invalid input: text must be a string'}
         validation = {
             'has_top_heading': False,
             'has_box_heading': False,
@@ -1421,7 +1443,8 @@ class ValidationService:
                 return {'status': 'Rejected', 'feedback': f'Missing fields: {", ".join(missing_fields)} (Gemini)'}
         nlp = self.get_nlp()
         doc = nlp(text)
-
+        if not isinstance(text, str):
+            return {'status': 'Rejected', 'feedback': 'Invalid input: text must be a string'}
         validation = {
             'has_odc_number': False,
             'has_certify_name': False,
@@ -1552,6 +1575,8 @@ class ValidationService:
                 return {'status': 'Rejected', 'feedback': f'Missing fields: {", ".join(missing_fields)} (Gemini)'}
         nlp = self.get_nlp()
         doc = nlp(text)
+        if not isinstance(text, str):
+            return {'status': 'Rejected', 'feedback': 'Invalid input: text must be a string'}
         validation = {'missing_fields': []}
         # Check for main heading with "Polytechnic" (very flexible patterns)
         polytechnic_patterns = [
