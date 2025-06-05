@@ -34,16 +34,6 @@
             z-index: 1;
             transition: width 0.3s ease;
         }
-        
-        @media (max-width: 640px) {
-            .progress-container {
-                overflow-x: auto;
-                -webkit-overflow-scrolling: touch;
-            }
-            .progress-tracker {
-                min-width: 600px;
-            }
-        }
     </style>
 </head>
 <body class="min-h-screen flex items-center justify-center p-4">
@@ -57,8 +47,7 @@
                 <div class="progress-tracker relative flex justify-between items-start">
                     <!-- Step 1 -->
                     <div class="step flex flex-col items-center relative z-10 w-1/5" data-step="1">
-                        <button class="step-btn w-12 h-12 rounded-full flex items-center justify-center text-white font-bold shadow-lg transition-all duration-300 bg-[#9C3B1B] bg-opacity-80 hover:scale-110 focus:outline-none focus:ring-4 focus:ring-[#d4ccb4]"
-                                onclick="setActiveStep(1)">
+                        <button class="step-btn w-12 h-12 rounded-full flex items-center justify-center text-white font-bold shadow-lg transition-all duration-300 bg-[#9C3B1B] bg-opacity-80 hover:scale-110 focus:outline-none focus:ring-4 focus:ring-[#d4ccb4]">
                             <i class="fas fa-file-alt"></i>
                         </button>
                         <span class="text-xs md:text-sm font-medium text-center mt-2 text-[#9C3B1B] opacity-80">Fill out form</span>
@@ -66,8 +55,7 @@
                     
                     <!-- Step 2 -->
                     <div class="step flex flex-col items-center relative z-10 w-1/5" data-step="2">
-                        <button class="step-btn w-12 h-12 rounded-full flex items-center justify-center text-white font-bold shadow-lg transition-all duration-300 bg-[#9C3B1B] bg-opacity-80 hover:scale-110 focus:outline-none focus:ring-4 focus:ring-[#d4ccb4]"
-                                onclick="setActiveStep(2)">
+                        <button class="step-btn w-12 h-12 rounded-full flex items-center justify-center text-white font-bold shadow-lg transition-all duration-300 bg-[#9C3B1B] bg-opacity-80 hover:scale-110 focus:outline-none focus:ring-4 focus:ring-[#d4ccb4]">
                             <i class="fas fa-signature"></i>
                         </button>
                         <span class="text-xs md:text-sm font-medium text-center mt-2 text-[#9C3B1B] opacity-80">Get documents signed</span>
@@ -75,8 +63,7 @@
                     
                     <!-- Step 3 -->
                     <div class="step flex flex-col items-center relative z-10 w-1/5" data-step="3">
-                        <button class="step-btn w-12 h-12 rounded-full flex items-center justify-center text-white font-bold shadow-lg transition-all duration-300 bg-[#9C3B1B] bg-opacity-80 hover:scale-110 focus:outline-none focus:ring-4 focus:ring-[#d4ccb4]"
-                                onclick="setActiveStep(3)">
+                        <button class="step-btn w-12 h-12 rounded-full flex items-center justify-center text-white font-bold shadow-lg transition-all duration-300 bg-[#9C3B1B] bg-opacity-80 hover:scale-110 focus:outline-none focus:ring-4 focus:ring-[#d4ccb4]">
                             <i class="fas fa-upload"></i>
                         </button>
                         <span class="text-xs md:text-sm font-medium text-center mt-2 text-[#9C3B1B] opacity-80">Upload documents</span>
@@ -84,8 +71,7 @@
                     
                     <!-- Step 4 -->
                     <div class="step flex flex-col items-center relative z-10 w-1/5" data-step="4">
-                        <button class="step-btn w-12 h-12 rounded-full flex items-center justify-center text-white font-bold shadow-lg transition-all duration-300 bg-[#9C3B1B] bg-opacity-80 hover:scale-110 focus:outline-none focus:ring-4 focus:ring-[#d4ccb4]"
-                                onclick="setActiveStep(4)">
+                        <button class="step-btn w-12 h-12 rounded-full flex items-center justify-center text-white font-bold shadow-lg transition-all duration-300 bg-[#9C3B1B] bg-opacity-80 hover:scale-110 focus:outline-none focus:ring-4 focus:ring-[#d4ccb4]">
                             <i class="fas fa-fingerprint"></i>
                         </button>
                         <span class="text-xs md:text-sm font-medium text-center mt-2 text-[#9C3B1B] opacity-80">Biometric at Meeseva</span>
@@ -93,33 +79,36 @@
                     
                     <!-- Step 5 -->
                     <div class="step flex flex-col items-center relative z-10 w-1/5" data-step="5">
-                        <button class="step-btn w-12 h-12 rounded-full flex items-center justify-center text-white font-bold shadow-lg transition-all duration-300 bg-[#9C3B1B] bg-opacity-80 hover:scale-110 focus:outline-none focus:ring-4 focus:ring-[#d4ccb4]"
-                                onclick="setActiveStep(5)">
+                        <button class="step-btn w-12 h-12 rounded-full flex items-center justify-center text-white font-bold shadow-lg transition-all duration-300 bg-[#9C3B1B] bg-opacity-80 hover:scale-110 focus:outline-none focus:ring-4 focus:ring-[#d4ccb4]">
                             <i class="fas fa-calendar-check"></i>
                         </button>
                         <span class="text-xs md:text-sm font-medium text-center mt-2 text-[#9C3B1B] opacity-80">Appointment – submitting hard copy</span>
                     </div>
                 </div>
             </div>
-            
-        
         </div>
     </div>
-
+    <div id="statusMessage" class="text-center mt-8 text-lg font-medium text-[#9C3B1B]"></div>
     <script>
-        let currentStep = 0;
+        // Add step messages
+        const stepMessages = {
+            0: "Start your application",
+            1: "Application form submitted - Documents pending verification",
+            2: "Documents submitted - Awaiting verification",
+            3: "Documents verified successfully - Schedule biometric appointment",
+            4: "Biometric verification completed - Awaiting final submission",
+            5: "Application process completed"
+        };
+        // Get current step and status from template
+        const currentStep = '{{ current_step }}';
+        const applicationStatus = '{{ status }}';
         const steps = document.querySelectorAll('.step');
         const progressLine = document.getElementById('progressLine');
         const statusMessage = document.getElementById('statusMessage');
-       
 
-        function setActiveStep(step) {
-            currentStep = step;
-            updateProgress();
-        }
 
         function updateProgress() {
-            // Reset all steps
+            // Update step appearances
             steps.forEach((step, index) => {
                 const stepBtn = step.querySelector('.step-btn');
                 const stepLabel = step.querySelector('span');
@@ -133,14 +122,12 @@
                     // Current step
                     stepBtn.className = stepBtn.className.replace(/bg-\[[^\]]+\]/g, 'bg-[#39788c]');
                     stepLabel.className = stepLabel.className.replace(/text-\[[^\]]+\]/g, 'text-[#3a7b7b]');
-                    // Set back to original icon
                     const icons = ['fa-file-alt', 'fa-signature', 'fa-upload', 'fa-fingerprint', 'fa-calendar-check'];
                     stepBtn.innerHTML = `<i class="fas ${icons[index]}"></i>`;
                 } else {
                     // Upcoming steps
                     stepBtn.className = stepBtn.className.replace(/bg-\[[^\]]+\]/g, 'bg-[#9C3B1B]');
                     stepLabel.className = stepLabel.className.replace(/text-\[[^\]]+\]/g, 'text-[#9C3B1B]');
-                    // Set back to original icon
                     const icons = ['fa-file-alt', 'fa-signature', 'fa-upload', 'fa-fingerprint', 'fa-calendar-check'];
                     stepBtn.innerHTML = `<i class="fas ${icons[index]}"></i>`;
                 }
@@ -148,24 +135,27 @@
 
             // Update progress line
             const progressPercentage = ((currentStep - 1) / (steps.length - 1)) * 100;
-            progressLine.style.width = progressPercentage + '%';
+            progressLine.style.width = `${progressPercentage}%`;
             
             // Update status message
-            statusMessage.textContent = stepMessages[currentStep];
-            
-            // Add celebration for completing all steps
-            if (currentStep === steps.length) {
-                setTimeout(() => {
+            if (statusMessage) {
+                statusMessage.textContent = stepMessages[currentStep];
+                
+                // Add completion celebration
+                if (applicationStatus === 'completed') {
+                    statusMessage.classList.add('text-green-600', 'font-bold');
                     document.body.classList.add('animate-pulse');
                     setTimeout(() => {
                         document.body.classList.remove('animate-pulse');
                     }, 1000);
-                }, 300);
+                }
             }
         }
 
-        // Initialize
-        updateProgress();
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            updateProgress();
+        });
     </script>
 </body>
 </html>

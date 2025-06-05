@@ -17,6 +17,8 @@ from dotenv import load_dotenv
 import codecs
 from dotenv import dotenv_values
 
+app = Flask(__name__)
+
 # Load environment variables from .env (force override)
 dotenv_path = os.path.join(os.path.dirname(__file__), 'ocr_model', '.env')
 print('[ENV] .env path:', dotenv_path, 'Exists:', os.path.exists(dotenv_path))
@@ -42,29 +44,47 @@ from ocr_model.app.services.validation_service import ValidationService
 ocr_service = OCRService()
 validation_service = ValidationService()
 
-app = Flask(__name__)
+# Database configuration - use absolute paths
+basedir = os.path.abspath(os.path.dirname(__file__))
+instance_path = os.path.join(basedir, 'instance')
+db_path = os.path.join(instance_path, 'scholarship.db')
+os.makedirs(instance_path, exist_ok=True)
+
 
 config_path = os.path.join(os.path.dirname(__file__), 'config.json')
 with open(config_path, 'r') as f:
     params = json.load(f)['params']
 
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///scholarship.db'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['SECRET_KEY'] = 'your_secret_key_here'  # Change this in production
-# Flask-Mail Config (for sending OTP)
-app.config['MAIL_SERVER'] = 'smtp.gmail.com'
-app.config['MAIL_PORT'] = 587
-app.config['MAIL_USE_TLS'] = True
-app.config['MAIL_USERNAME'] = params['gmail-user']
-app.config['MAIL_PASSWORD'] = params['gmail-password']  # Use App Password for Gmail
+# Generate a secure secret key if not exists
+if not params.get('secret_key'):
+    import secrets
+    params['secret_key'] = secrets.token_hex(32)
+    # Save back to config.json
+    with open(config_path, 'w') as f:
+        json.dump({'params': params}, f, indent=4)
 
-app.config['UPLOAD_FOLDER'] = 'static/uploads'
-app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
-app.config['ALLOWED_EXTENSIONS'] = {'pdf', 'png', 'jpg', 'jpeg'}
+
+# Flask Configuration
+app.config.update(
+    SECRET_KEY=params['secret_key'],
+    SESSION_COOKIE_SECURE=True,
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE='Lax',
+    PERMANENT_SESSION_LIFETIME=timedelta(minutes=60),
+    SQLALCHEMY_DATABASE_URI=f'sqlite:///{db_path}',
+    SQLALCHEMY_TRACK_MODIFICATIONS=False,
+    MAIL_SERVER='smtp.gmail.com',
+    MAIL_PORT=587,
+    MAIL_USE_TLS=True,
+    MAIL_USERNAME=params['gmail-user'],
+    MAIL_PASSWORD=params['gmail-password'],
+    UPLOAD_FOLDER='static/uploads',
+    MAX_CONTENT_LENGTH=16 * 1024 * 1024,  # 16MB max file size
+    ALLOWED_EXTENSIONS={'pdf', 'png', 'jpg', 'jpeg'}
+)
+
 
 mail = Mail(app)
-
-
 db.init_app(app)
 
 # Home Page
@@ -256,6 +276,7 @@ def student_signup():
         db.session.rollback()
         return jsonify({'error': f'Failed to send OTP: {str(e)}'}), 500
 
+
 @app.route('/verify-otp', methods=['POST'])
 def verify_otp():
     data = request.json
@@ -267,24 +288,19 @@ def verify_otp():
     temp_data = session['temp_signup']
     email = temp_data['email']
 
-    cleanup_otps()  # Clean up old/used OTPs before verification
-
-    # Verify OTP
-    otp_record = OTP.query.filter(
-        OTP.email == email,
-        OTP.is_used == False,
-        OTP.expires_at > datetime.now()
-    ).order_by(OTP.created_at.desc()).first()
-
-    if not otp_record or otp_record.otp != user_otp:
-        return jsonify({'error': 'Invalid or expired OTP'}), 400
-    
-    # Delete the OTP immediately after successful verification
-    otp_record.is_used = True
-
-    # Create student account
     try:
+    # Verify OTP
+        otp_record = OTP.query.filter(
+            OTP.email == email,
+            OTP.is_used == False,
+            OTP.expires_at > datetime.now()
+        ).order_by(OTP.created_at.desc()).first()
 
+
+        if not otp_record or otp_record.otp != user_otp:
+            return jsonify({'error': 'Invalid or expired OTP'}), 400
+    
+    # Create student account
         new_student = Student(
             username=temp_data['name'],
             email=email,
@@ -292,26 +308,39 @@ def verify_otp():
             roll_number=temp_data['roll_number'],
             is_verified=True
         )
+
+        otp_record.is_used = True  # Mark OTP as used
         
-        db.session.add(new_student)
-        db.session.commit()
+        try:
+            db.session.add(otp_record)
+            db.session.add(new_student)
+            db.session.commit()
+            # Clear temp session
+            session.pop('temp_signup', None)
 
-        # Clear temp session
-        session.pop('temp_signup', None)
+            #extra
+            session.clear()
+            session.permanent = True
 
-        # Set auth session
-        session['user_id'] = new_student.user_id
-        session['user_type'] = 'student'
-        session['username'] = new_student.username
+            # Set auth session
+            session['user_id'] = new_student.user_id
+            session['user_type'] = 'student'
+            session['username'] = new_student.username
 
-        return jsonify({
-            'message': 'Account verified successfully!',
-            'redirect': '/student_dashboard'
-        }, 201)
+            return jsonify({
+                'message': 'Account verified successfully!',
+                'redirect': '/student_dashboard'
+            }), 201
+        except Exception as e:
+            db.session.rollback()
+            print(f"Database error: {str(e)}")
+            return jsonify({'error': 'Failed to create account'}), 500
+
 
     except Exception as e:
-        db.session.rollback()
-        return jsonify({'error': f'Account creation failed: {str(e)}'}), 500
+        print(f"Verification error: {str(e)}")
+        return jsonify({'error': 'Verification failed'}), 500
+
 
 def cleanup_otps():
     """Clean up used and expired OTPs"""
@@ -858,6 +887,68 @@ def upload_doc_year1():
     except Exception as e:
         print(f"Error verifying document: {str(e)}")
         return jsonify({'error': 'Internal server error'}), 500
+    
+@app.route('/upload_doc_reg', methods=['GET', 'POST'])
+def upload_doc_reg():
+    if 'user_id' not in session or session.get('user_type') != 'student':
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    if request.method == 'GET':
+        # Render the upload form page
+        return render_template('upload_doc_reg.html')
+
+    try:
+        if 'document' not in request.files:
+            return jsonify({'error': 'No document provided'}), 400
+            
+        file = request.files['document']
+        document_type = request.form.get('document_type')
+        
+        if not file or file.filename == '':
+            return jsonify({'error': 'No file selected'}), 400
+            
+        if not document_type:
+            return jsonify({'error': 'Document type not specified'}), 400
+            
+        # Process the document using OCR
+        result = process_document_upload(file, document_type)
+        print(result)
+        approved = False
+        if isinstance(result, dict):
+            # Check both 'status' and 'validation' keys for 'approved'
+            for key in ['status']:
+                value = result.get(key)
+                if value and 'approved' in str(value).lower():
+                    approved = True
+                    break
+        elif isinstance(result, str):
+            if 'approved' in result.lower():
+                approved = True
+
+        if approved:
+            return jsonify({
+                'success': True,
+                'message': 'Document verified successfully',
+                'validation': result
+            })
+        else:
+            result_text = str(result)
+
+        if result_text and 'approved' in result_text.lower():
+            return jsonify({
+                'success': True,
+                'message': 'Document verified successfully',
+                'validation': result
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'Document verification failed'
+            }, 400)
+            
+    except Exception as e:
+        print(f"Error verifying document: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
 
 
 @app.route('/check_documents_status')
@@ -988,6 +1079,52 @@ def previous_applications():
     except Exception as e:
 
         return redirect(url_for('student_dashboard'))
+    
+@app.route('/progress')
+def progress():
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    
+    try:
+        # Get student's application status
+        student = Student.query.get(session['user_id'])
+        application = ScholarshipApplication.query.filter_by(
+            roll_number=student.roll_number
+        ).order_by(ScholarshipApplication.created_at.desc()).first()
+        
+        if not application:
+            return redirect(url_for('fill_form'))
+            
+        # Map application states to progress steps
+        current_step = 1  # Default to step 1
+
+
+        # Determine current step based on scholarship_state
+        if application.scholarship_state == 'started':
+            current_step = 1  # Form submitted
+        elif application.scholarship_state == 'documents_verified':
+            current_step = 3  # Documents verified by admin
+        elif application.scholarship_state == 'appointment_booked':
+            current_step = 4  # Biometric done and appointment booked
+        elif application.scholarship_state == 'completed':
+            current_step = 5  # Process completed
+
+        # Get student category and year for context
+        context = {
+            'current_step': current_step,
+            'student_name': student.username,
+            'roll_number': student.roll_number,
+            'branch': application.branch,
+            'year': application.year,
+            'application_id': application.id,
+            'application_date': application.created_at.strftime('%d-%m-%Y'),
+            'status': application.scholarship_state
+        }
+        return render_template('progress.html', **context)
+        
+    except Exception as e:
+        print(f"Error loading progress page: {str(e)}")
+        return redirect(url_for('student_dashboard'))
 
 # logout     
 @app.route('/logout')
@@ -1001,7 +1138,6 @@ def logout():
 def fill_form():
     if 'user_id' not in session or session.get('user_type') != 'student':
         return redirect(url_for('index'))
-        return "Roll number missing from session", 400
     return render_template('fill_form.html')
 
 # Scholarship application form submission
@@ -1031,16 +1167,29 @@ def submit_scholarship_form():
             roll_number=data['roll_number'],
             branch=data['branch'],
             year=data['year'],
-            lateral_entry=data['lateral_entry'],
+            lateral_entry=data.get('lateral_entry', False),
             scholarship_state='started'
         )
         
         db.session.add(application)
         db.session.commit()
+
+        # Determine the next page based on student type and year
+        if data.get('lateral_entry'):
+            # Lateral Entry route
+            next_page = '/list_of_doc'
+        else:
+            # Regular student route
+            if str(data['year']) == '1':
+                next_page = '/list_of_doc_year1'
+            else:
+                next_page = '/list_of_doc_reg'
+        
         
         return jsonify({
             'success': True,
             'message': 'Application submitted successfully',
+            'redirect': next_page
         }), 200
         
     except Exception as e:
@@ -1055,12 +1204,24 @@ def list_of_doc():
     if 'user_id' not in session:
         return redirect(url_for('index'))
 
-    # Check if user is a student
-    if session.get('user_type') != 'student':
-        return redirect(url_for('index'))
-
     # Render the document list page
     return render_template('list_of_doc.html')
+
+@app.route('/list_of_doc_year1')
+def list_of_doc_year1():
+    # Check if user is logged in
+    if 'user_id' not in session:
+        return redirect(url_for('index'))
+
+    return render_template('list_of_doc_year1.html')
+
+@app.route('/list_of_doc_reg')
+def list_of_doc_reg():
+    # Check if user is logged in
+    if 'user_id' not in session:
+        return redirect(url_for('index'))
+
+    return render_template('list_of_doc_reg.html')
 
 # ADMIN ROUTES HERE
 

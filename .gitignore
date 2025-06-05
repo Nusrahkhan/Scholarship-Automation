@@ -10,9 +10,14 @@ env/
 venv/
 .env
 
-# Database
+#database
 *.db
+*.sqlite
 *.sqlite3
+
+# Flask
+instance/*.db
+!instance/.gitkeep
 
 # IDE
 .vscode/

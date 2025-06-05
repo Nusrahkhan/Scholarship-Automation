@@ -303,13 +303,13 @@
                     body: JSON.stringify(formData)
                 });
 
-                const data = await response.json();
+                const result = await response.json();
                 
-                if (response.ok) {
-                    alert('Application submitted successfully!');
-                    window.location.href = '/list_of_doc';
+                if (result.success) {
+                    // Redirect to the appropriate page based on the server response
+                    window.location.href = result.redirect;
                 } else {
-                    alert(data.error || 'Failed to submit application');
+                    alert(result.error || 'Form submission failed');
                 }
             } catch (error) {
                 console.error('Error:', error);

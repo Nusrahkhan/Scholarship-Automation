@@ -1,6 +1,7 @@
 {
     "params": {
         "gmail-user": "khannusrah0@gmail.com",
-        "gmail-password": "vfqd mrij mdyz nkac "
+        "gmail-password": "vfqd mrij mdyz nkac ",
+        "secret_key": "966b993aa5cc597018d7852ab904af8117dde55e2170b089395ab462f0ccd662"
     }
 }
