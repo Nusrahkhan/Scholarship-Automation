@@ -1,57 +1,28 @@
 from flask import Flask, request, jsonify, render_template, session, abort, redirect, url_for, make_response
 from flask_sqlalchemy import SQLAlchemy
-from datetime import datetime, timezone
-from werkzeug.security import generate_password_hash, check_password_hash
-from werkzeug.utils import secure_filename
-from utils import validate_college_email, allowed_file 
-import sqlite3
 from datetime import datetime, timedelta
 from flask_mail import Mail, Message
-import json
-import random
-from models import db, Student, Admin, Teacher, TeacherUnavailability, ScholarshipApplication, OTP, Circular
-import sys
+from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.utils import secure_filename
 import os
+import json
+import sys
+import random
+from dotenv import load_dotenv, dotenv_values
 from sqlalchemy import distinct, extract, desc, func
-from dotenv import load_dotenv
-import codecs
-from dotenv import dotenv_values
 
 app = Flask(__name__)
-
-# Load environment variables from .env (force override)
-dotenv_path = os.path.join(os.path.dirname(__file__), 'ocr_model', '.env')
-print('[ENV] .env path:', dotenv_path, 'Exists:', os.path.exists(dotenv_path))
-load_dotenv(dotenv_path, override=True)
-print('[ENV] GEMINI_API_KEY loaded:', os.getenv('GEMINI_API_KEY'))
-
-# Print raw .env file contents for debugging
-with codecs.open(dotenv_path, 'r', encoding='utf-8-sig') as f:
-    env_contents = f.read()
-    print('[ENV] Raw .env contents:', repr(env_contents))
-# Print parsed .env values
-parsed_env = dotenv_values(dotenv_path)
-print('[ENV] dotenv_values parsed:', parsed_env)
-
-# Add OCR model to Python path
-ocr_model_path = os.path.join(os.path.dirname(__file__), 'ocr_model')
-sys.path.append(ocr_model_path)
-
-from ocr_model.app.services.ocr_service import OCRService
-from ocr_model.app.services.validation_service import ValidationService
-
-# Initialize services
-ocr_service = OCRService()
-validation_service = ValidationService()
 
 # Database configuration - use absolute paths
 basedir = os.path.abspath(os.path.dirname(__file__))
 instance_path = os.path.join(basedir, 'instance')
 db_path = os.path.join(instance_path, 'scholarship.db')
+upload_path = os.path.join(basedir, 'static', 'uploads')
 os.makedirs(instance_path, exist_ok=True)
+os.makedirs(upload_path, exist_ok=True)
 
-
-config_path = os.path.join(os.path.dirname(__file__), 'config.json')
+#load configuration from config.json
+config_path = os.path.join(basedir, 'config.json')
 with open(config_path, 'r') as f:
     params = json.load(f)['params']
 
@@ -71,21 +42,55 @@ app.config.update(
     SESSION_COOKIE_HTTPONLY=True,
     SESSION_COOKIE_SAMESITE='Lax',
     PERMANENT_SESSION_LIFETIME=timedelta(minutes=60),
-    SQLALCHEMY_DATABASE_URI=f'sqlite:///{db_path}',
+    SQLALCHEMY_DATABASE_URI=f'sqlite:///{db_path}',  # Fixed database path
     SQLALCHEMY_TRACK_MODIFICATIONS=False,
     MAIL_SERVER='smtp.gmail.com',
     MAIL_PORT=587,
     MAIL_USE_TLS=True,
     MAIL_USERNAME=params['gmail-user'],
     MAIL_PASSWORD=params['gmail-password'],
-    UPLOAD_FOLDER='static/uploads',
-    MAX_CONTENT_LENGTH=16 * 1024 * 1024,  # 16MB max file size
+    UPLOAD_FOLDER=os.path.join(basedir, 'static', 'uploads'),  # Fixed upload path
+    MAX_CONTENT_LENGTH=16 * 1024 * 1024,
     ALLOWED_EXTENSIONS={'pdf', 'png', 'jpg', 'jpeg'}
 )
 
 
-mail = Mail(app)
+from models import db
 db.init_app(app)
+mail = Mail(app)
+
+#app.app_context().push()
+
+from models import Student, Admin, Teacher, TeacherUnavailability, ScholarshipApplication, OTP, Circular, Appointment
+
+# Add OCR model to Python path
+ocr_model_path = os.path.join(os.path.dirname(__file__), 'ocr_model')
+sys.path.append(ocr_model_path)
+
+# Load environment variables from .env (force override)
+dotenv_path = os.path.join(ocr_model_path, 'ocr_model', '.env')
+#print('[ENV] .env path:', dotenv_path, 'Exists:', os.path.exists(dotenv_path))
+load_dotenv(dotenv_path, override=True)
+#print('[ENV] GEMINI_API_KEY loaded:', os.getenv('GEMINI_API_KEY'))
+
+# Print raw .env file contents for debugging
+#with codecs.open(dotenv_path, 'r', encoding='utf-8-sig') as f:
+ #   env_contents = f.read()
+  #  print('[ENV] Raw .env contents:', repr(env_contents))
+# Print parsed .env values
+#parsed_env = dotenv_values(dotenv_path)
+#print('[ENV] dotenv_values parsed:', parsed_env)
+
+from ocr_model.app.services.ocr_service import OCRService
+from ocr_model.app.services.validation_service import ValidationService
+
+# Initialize services
+ocr_service = OCRService()
+validation_service = ValidationService()
+
+#import utility functions
+from utils import validate_college_email, allowed_file
+
 
 # Home Page
 @app.route('/')
@@ -136,7 +141,7 @@ def check_all_documents_verified(student_id):
     """Check if all required documents are verified for the student's latest application."""
     try:
         # Get student info
-        student = Student.query.get(student_id)
+        student = db.session.get(Student, session['user_id'])
         if not student:
             return False, "Student not found"
 
@@ -170,31 +175,15 @@ def check_all_documents_verified(student_id):
         print(f"Error checking document verification: {str(e)}")
         return False, "Error checking verification status"
 
-# Signup Routes for Student, Teacher, and Admin
-
-# Database connection helper
-def get_db():
-    conn = sqlite3.connect('database.db')
-    conn.row_factory = sqlite3.Row
-    return conn
-
 
 # Mark OTP as used
 def mark_otp_used(email):
-    conn = get_db()
-    conn.execute(
-        'DELETE FROM otp_store WHERE email = ?',
-        (email,)
-    )
-    # Delete old/used OTPs
-    conn.execute('''
-        DELETE FROM otp_store 
-        WHERE (is_used = TRUE) 
-        OR (expires_at < datetime('now'))
-    ''')
-
-    conn.commit()
-    conn.close()
+    try:
+        OTP.query.filter_by(email=email).update({"is_used": True})
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error marking OTP used: {str(e)}")
 
 
 #sign up routes
@@ -264,7 +253,7 @@ def student_signup():
             sender=app.config['MAIL_USERNAME'],
             recipients=[email]
         )
-        msg.body = f'Your OTP is: {otp}\nValid for 5 minutes.'
+        msg.body = f"Your OTP is: {otp}\nValid for 5 minutes."
         mail.send(msg)
 
         return jsonify({
@@ -287,6 +276,7 @@ def verify_otp():
 
     temp_data = session['temp_signup']
     email = temp_data['email']
+    cleanup_otps()# old otps cleanup
 
     try:
     # Verify OTP
@@ -312,15 +302,14 @@ def verify_otp():
         otp_record.is_used = True  # Mark OTP as used
         
         try:
-            db.session.add(otp_record)
             db.session.add(new_student)
             db.session.commit()
             # Clear temp session
             session.pop('temp_signup', None)
 
             #extra
-            session.clear()
-            session.permanent = True
+            #session.clear()
+            #session.permanent = True
 
             # Set auth session
             session['user_id'] = new_student.user_id
@@ -345,13 +334,14 @@ def verify_otp():
 def cleanup_otps():
     """Clean up used and expired OTPs"""
     try:
-        # Delete used OTPs
-        OTP.query.filter_by(is_used=True).delete()
-        
-        # Delete expired OTPs
-        OTP.query.filter(OTP.expires_at < datetime.now()).delete()
-        
-        db.session.commit()
+        with app.app_context():
+            # Delete used OTPs
+            OTP.query.filter_by(is_used=True).delete()
+            
+            # Delete expired OTPs
+            OTP.query.filter(OTP.expires_at < datetime.now()).delete()
+            
+            db.session.commit()
     except Exception as e:
         db.session.rollback()
         print(f"Error cleaning up OTPs: {str(e)}")
@@ -496,7 +486,7 @@ def student_dashboard():
         return redirect(url_for('index'))
     
         # Verify student exists in database
-    student = Student.query.get(session['user_id'])
+    student = db.session.get(Student, session['user_id'])
     if not student:
         # Invalid session - clear it and redirect
         session.clear()
@@ -709,8 +699,8 @@ def get_timetable(teacher_id):
     if 'user_id' not in session:
         return jsonify({'error': 'Unauthorized'}), 401
 
-    teacher = Teacher.query.get_or_404(teacher_id)
-    
+    teacher = db.session.get_or_404(Teacher, teacher_id)
+
     if not teacher.time_table:
         return jsonify({'error': 'No timetable found'}), 404
 
@@ -732,47 +722,47 @@ def get_timetable(teacher_id):
 @app.route('/available_teachers', methods=['GET'])
 def available_teachers():
     """Handle both API and view requests for available teachers"""
-    # Get date parameter or use current date
-    selected_date = request.args.get('date', datetime.now().strftime('%Y-%m-%d'))
-    
-    # Check if requesting JSON (API) or HTML (view)
-    want_json = request.headers.get('Accept') == 'application/json'
-    
+    if 'user_id' not in session or session.get('user_type') != 'student':
+        return redirect(url_for('login'))
+        
     try:
-        datetime.strptime(selected_date, '%Y-%m-%d')
-    except ValueError:
-        if want_json:
-            return jsonify({'error': 'Invalid date format. Use YYYY-MM-DD'}), 400
-        return "Invalid date format. Use YYYY-MM-DD", 400
+        # Get student's application
+        student = db.session.get(Student, session['user_id'])
+        # Fix: Use student's roll_number directly instead of email
+        application = ScholarshipApplication.query.filter_by(
+            roll_number=student.email.split('@')[0] 
+        ).order_by(ScholarshipApplication.created_at.desc()).first()
+        
+        if not application:
+            print(f"No application found for student {student.roll_number}")  # Debug log
+            return redirect(url_for('fill_form'))
+            
+        # Debug log
+        print(f"Application found: {application.id}, State: {application.scholarship_state}")
+        
+        # Get date parameter or use current date
+        selected_date = request.args.get('date', datetime.now().strftime('%Y-%m-%d'))
+        
+        # Get unavailable teachers for selected date
+        unavailable_teacher_ids = [
+            t.username for t in TeacherUnavailability.query.filter_by(date=selected_date).all()
+        ]
+        
+        # Get available teachers
+        available_teachers = Teacher.query.filter(
+            Teacher.username.notin_(unavailable_teacher_ids) if unavailable_teacher_ids else True
+        ).all()
 
-    # Get unavailable teacher IDs
-    unavailable_teacher_ids = [
-        t.user_id for t in TeacherUnavailability.query.filter_by(date=selected_date).all()
-    ]
-    # Get available teachers
-    available_teachers = Teacher.query.filter(
-        Teacher.user_id.notin_(unavailable_teacher_ids) if unavailable_teacher_ids else True
-    ).all()
-
-    if want_json:
-        # Return JSON response for API
-        teachers_data = [{
-            'user_id': teacher.user_id,
-            'username': teacher.username,
-            'has_timetable': teacher.time_table is not None,
-            'timetable_url': url_for('get_timetable', teacher_id=teacher.user_id, _external=True) 
-                           if teacher.time_table else None
-        } for teacher in available_teachers]
-
-        return jsonify({
-            'date': selected_date,
-            'available_teachers': teachers_data
-        })
-    else:
-        # Return HTML view
+        # Return HTML view with application data
         return render_template('available_teachers.html',
                             teachers=available_teachers,
-                            selected_date=selected_date)
+                            selected_date=selected_date,
+                            application_type=application.lateral_entry,
+                            application_year=application.year)
+
+    except Exception as e:
+        print(f"Error in available_teachers route: {str(e)}")  # Debug log
+        return redirect(url_for('student_dashboard'))
 
 # Document upload routes
 @app.route('/upload_doc', methods=['GET', 'POST'])
@@ -969,13 +959,15 @@ def book_appointment():
     if 'user_id' not in session:
         return jsonify({'success': False, 'error': 'Unauthorized'}), 401
 
+    # Get form data
+    application_id = request.form.get('application_id')
+    
     # Check if application exists
     application = ScholarshipApplication.query.filter_by(id=application_id).first()
     if not application:
         return jsonify({'success': False, 'error': 'Invalid application ID'}), 404
     
     # Get form data
-    application_id = request.form.get('application_id')
     appointment_date = request.form.get('appointment_date')
     time_slot = request.form.get('time_slot')
     slip_file = request.files.get('slip')
@@ -1003,7 +995,7 @@ def book_appointment():
         return jsonify({'success': False, 'error': 'Meeseva slip verification failed', 'details': validation_result}), 400
     
     # Prevent double booking for the same application and slot
-    existing = appointment.query.filter_by(
+    existing = Appointment.query.filter_by(
         application_id=application_id,
         appointment_date=datetime.strptime(appointment_date, "%Y-%m-%d").date(),
         time_slot=time_slot
@@ -1018,14 +1010,14 @@ def book_appointment():
     slip_name = slip_file.filename
 
     # Create appointment
-    appointment = appointment(
+    new_appointment = Appointment(
         application_id=application_id,
         slip_data=slip_data,
         slip_name=slip_name,
         appointment_date=datetime.strptime(appointment_date, "%Y-%m-%d").date(),
         time_slot=time_slot
     )
-    db.session.add(appointment)
+    db.session.add(new_appointment)
     db.session.commit()
 
     return jsonify({'success': True, 'message': 'Appointment booked successfully.'}), 200
@@ -1048,7 +1040,7 @@ def previous_applications():
             return redirect(url_for('login'))
 
         # Get current user's email from session
-        student = Student.query.get(session['user_id'])
+        student = db.session.get(Student, session['user_id'])
         if not student:
             return redirect(url_for('login'))
 
@@ -1087,9 +1079,9 @@ def progress():
     
     try:
         # Get student's application status
-        student = Student.query.get(session['user_id'])
-        application = ScholarshipApplication.query.filter_by(
-            roll_number=student.roll_number
+        student = db.session.get(Student, session['user_id'])
+        application = db.session.query(ScholarshipApplication).filter_by(
+            roll_number=student.email.split('@')[0],  # Extract roll number from email
         ).order_by(ScholarshipApplication.created_at.desc()).first()
         
         if not application:
@@ -1097,17 +1089,33 @@ def progress():
             
         # Map application states to progress steps
         current_step = 1  # Default to step 1
-
+        
 
         # Determine current step based on scholarship_state
         if application.scholarship_state == 'started':
             current_step = 1  # Form submitted
+            if application.lateral_entry:
+                next_page = '/list_of_doc'
+            else:
+                if str(application.year) == '1':
+                    next_page = '/list_of_doc_year1'
+                else:
+                    next_page = '/list_of_doc_reg'
         elif application.scholarship_state == 'documents_verified':
             current_step = 3  # Documents verified by admin
+            if application.lateral_entry:
+                next_page = '/upload_doc'
+            else:
+                if str(application.year) == '1':
+                    next_page = '/upload_year1'
+                else:
+                    next_page = '/upload_doc_reg'
         elif application.scholarship_state == 'appointment_booked':
             current_step = 4  # Biometric done and appointment booked
+            next_page = None
         elif application.scholarship_state == 'completed':
             current_step = 5  # Process completed
+            next_page = '/fill_form'
 
         # Get student category and year for context
         context = {
@@ -1118,7 +1126,9 @@ def progress():
             'year': application.year,
             'application_id': application.id,
             'application_date': application.created_at.strftime('%d-%m-%Y'),
-            'status': application.scholarship_state
+            'status': application.scholarship_state,
+            'next_page': next_page,
+            'lateral_entry': application.lateral_entry
         }
         return render_template('progress.html', **context)
         

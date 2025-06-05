@@ -76,7 +76,7 @@ class Circular(db.Model):
 # appointments
 class Appointment(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    application_id = db.Column(db.Integer, db.ForeignKey('scholarship_application.id'), nullable=False)
+    application_id = db.Column(db.String(20), db.ForeignKey('scholarship_application.id'), nullable=False)
     slip_data = db.Column(db.LargeBinary)
     slip_name = db.Column(db.String(255))
     appointment_date = db.Column(db.Date, nullable=False)

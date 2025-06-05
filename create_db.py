@@ -6,6 +6,8 @@ from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 import json
 
+db = SQLAlchemy()
+
 # Create Flask app
 app = Flask(__name__)
 

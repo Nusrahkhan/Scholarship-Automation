@@ -46,7 +46,7 @@
                 
                 <div class="progress-tracker relative flex justify-between items-start">
                     <!-- Step 1 -->
-                    <div class="step flex flex-col items-center relative z-10 w-1/5" data-step="1">
+                    <div class="step flex flex-col items-center relative z-10 w-1/5" data-step="1" data-state="{{ status }}">
                         <button class="step-btn w-12 h-12 rounded-full flex items-center justify-center text-white font-bold shadow-lg transition-all duration-300 bg-[#9C3B1B] bg-opacity-80 hover:scale-110 focus:outline-none focus:ring-4 focus:ring-[#d4ccb4]">
                             <i class="fas fa-file-alt"></i>
                         </button>
@@ -54,7 +54,7 @@
                     </div>
                     
                     <!-- Step 2 -->
-                    <div class="step flex flex-col items-center relative z-10 w-1/5" data-step="2">
+                    <div class="step flex flex-col items-center relative z-10 w-1/5" data-step="2" data-state="{{ status }}">
                         <button class="step-btn w-12 h-12 rounded-full flex items-center justify-center text-white font-bold shadow-lg transition-all duration-300 bg-[#9C3B1B] bg-opacity-80 hover:scale-110 focus:outline-none focus:ring-4 focus:ring-[#d4ccb4]">
                             <i class="fas fa-signature"></i>
                         </button>
@@ -62,7 +62,7 @@
                     </div>
                     
                     <!-- Step 3 -->
-                    <div class="step flex flex-col items-center relative z-10 w-1/5" data-step="3">
+                    <div class="step flex flex-col items-center relative z-10 w-1/5" data-step="3" data-state="{{ status }}">
                         <button class="step-btn w-12 h-12 rounded-full flex items-center justify-center text-white font-bold shadow-lg transition-all duration-300 bg-[#9C3B1B] bg-opacity-80 hover:scale-110 focus:outline-none focus:ring-4 focus:ring-[#d4ccb4]">
                             <i class="fas fa-upload"></i>
                         </button>
@@ -70,7 +70,7 @@
                     </div>
                     
                     <!-- Step 4 -->
-                    <div class="step flex flex-col items-center relative z-10 w-1/5" data-step="4">
+                    <div class="step flex flex-col items-center relative z-10 w-1/5" data-step="4" data-state="{{ status }}">
                         <button class="step-btn w-12 h-12 rounded-full flex items-center justify-center text-white font-bold shadow-lg transition-all duration-300 bg-[#9C3B1B] bg-opacity-80 hover:scale-110 focus:outline-none focus:ring-4 focus:ring-[#d4ccb4]">
                             <i class="fas fa-fingerprint"></i>
                         </button>
@@ -78,7 +78,7 @@
                     </div>
                     
                     <!-- Step 5 -->
-                    <div class="step flex flex-col items-center relative z-10 w-1/5" data-step="5">
+                    <div class="step flex flex-col items-center relative z-10 w-1/5" data-step="5" data-state="{{ status }}">
                         <button class="step-btn w-12 h-12 rounded-full flex items-center justify-center text-white font-bold shadow-lg transition-all duration-300 bg-[#9C3B1B] bg-opacity-80 hover:scale-110 focus:outline-none focus:ring-4 focus:ring-[#d4ccb4]">
                             <i class="fas fa-calendar-check"></i>
                         </button>
@@ -88,7 +88,6 @@
             </div>
         </div>
     </div>
-    <div id="statusMessage" class="text-center mt-8 text-lg font-medium text-[#9C3B1B]"></div>
     <script>
         // Add step messages
         const stepMessages = {
@@ -100,12 +99,29 @@
             5: "Application process completed"
         };
         // Get current step and status from template
-        const currentStep = '{{ current_step }}';
+        const currentStep = parseInt('{{ current_step }}');
         const applicationStatus = '{{ status }}';
+        const nextPage = '{{ next_page }}';
         const steps = document.querySelectorAll('.step');
         const progressLine = document.getElementById('progressLine');
         const statusMessage = document.getElementById('statusMessage');
 
+        const stepRedirects = {
+            'started': nextPage,
+            'documents_verified': nextPage,
+            'appointment_booked': null,
+            'completed': '/fill_form'
+        };
+
+        function handleStepClick(index) {
+            // Only handle clicks for current step (blue icon)
+            if (index + 1 === currentStep && applicationStatus !== 'completed') {
+                const redirect = stepRedirects[applicationStatus];
+                if (redirect) {
+                    window.location.href = redirect;
+                }
+            }
+        }
 
         function updateProgress() {
             // Update step appearances
@@ -114,18 +130,24 @@
                 const stepLabel = step.querySelector('span');
                 
                 if (index + 1 < currentStep) {
-                    // Completed steps
+                    // Completed steps - Green
                     stepBtn.className = stepBtn.className.replace(/bg-\[[^\]]+\]/g, 'bg-[#769770]');
                     stepLabel.className = stepLabel.className.replace(/text-\[[^\]]+\]/g, 'text-[#5a7184]');
                     stepBtn.innerHTML = '<i class="fas fa-check"></i>';
                 } else if (index + 1 === currentStep) {
-                    // Current step
+                    // Current step - Blue
                     stepBtn.className = stepBtn.className.replace(/bg-\[[^\]]+\]/g, 'bg-[#39788c]');
                     stepLabel.className = stepLabel.className.replace(/text-\[[^\]]+\]/g, 'text-[#3a7b7b]');
                     const icons = ['fa-file-alt', 'fa-signature', 'fa-upload', 'fa-fingerprint', 'fa-calendar-check'];
                     stepBtn.innerHTML = `<i class="fas ${icons[index]}"></i>`;
+
+                // Add click handler for current step
+                    if (applicationStatus !== 'completed') {
+                        stepBtn.style.cursor = 'pointer';
+                        stepBtn.onclick = () => handleStepClick(index);
+                    }
                 } else {
-                    // Upcoming steps
+                    // Upcoming steps - Default color(brown)
                     stepBtn.className = stepBtn.className.replace(/bg-\[[^\]]+\]/g, 'bg-[#9C3B1B]');
                     stepLabel.className = stepLabel.className.replace(/text-\[[^\]]+\]/g, 'text-[#9C3B1B]');
                     const icons = ['fa-file-alt', 'fa-signature', 'fa-upload', 'fa-fingerprint', 'fa-calendar-check'];

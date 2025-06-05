@@ -303,7 +303,7 @@
                 Back
             </button>
             
-            <button onclick="window.location.href='/upload_doc'" 
+            <button onclick="handleNextClick()" 
                     class="nav-btn next-btn px-6 py-3 text-white rounded-xl hover:shadow-lg transition-all duration-200 flex items-center">
                 Next
                 <i class="fas fa-arrow-right ml-2 text-lg"></i>
@@ -336,5 +336,20 @@
             alert('Please select a day other than Sunday');
         }
     });
+
+    function handleNextClick()  {
+        const isLateralEntry = '{{application_type}}';
+        const year = '{{ application_year }}';
+        
+        if (isLateralEntry === '1') {
+            window.location.href = '/upload_doc';
+        } else {
+            if (year === '1') {
+                window.location.href = '/upload_doc_year1';
+            } else {
+                window.location.href = '/upload_doc_reg';
+            }
+        }
+    }
 </script>
 </html>
