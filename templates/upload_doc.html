@@ -552,7 +552,7 @@
             'upload-9': { type: 'college_bonafide', required: true },
             'upload-10': { type: 'income_certificate', required: true },
             'upload-11': { type: 'caste_certificate', required: true },
-            'upload-12': { type: 'aadhaar', required: true },
+            'upload-12': { type: 'aadhaar', required: true },            
             'upload-13': { type: 'bank_passbook', required: true },
             'upload-14': { type: 'ration_card', required: false }, // Optional document
             'upload-15': { type: 'attendance_form', required: true }
@@ -615,41 +615,76 @@
         const checkmark = uploadBox.querySelector('.checkmark');
         
         // Handle file selection with OCR verification
-        input.addEventListener('change', async (e) => {
-            if (input.files.length) {
-                const file = input.files[0];
-                const docInfo = documentTypes[uploadBox.id];
-                const docType = docInfo.type;
-                // Show loading state
-                fileName.textContent = 'Verifying document...';
-                uploadContent.classList.add('hidden');
-                uploadPreview.classList.remove('hidden');
-                uploadBox.classList.add('active');
+// Update the file upload handler in the script section
+input.addEventListener('change', async (e) => {
+    if (input.files.length) {
+        const file = input.files[0];
+        const docInfo = documentTypes[uploadBox.id];
+        const docType = docInfo.type;
+        
+        // Show loading state
+        fileName.textContent = 'Verifying document...';
+        uploadContent.classList.add('hidden');
+        uploadPreview.classList.remove('hidden');
+        uploadBox.classList.add('active');
 
-                // Skip verification for ration card
-                if (!docInfo.required) {
-                    fileName.textContent = file.name;
-                    checkmark.style.color = '#4cad69';
-                    uploadBox.dataset.verified = 'true';
-                    checkAllRequiredDocumentsVerified();
-                    return;
+        // Skip verification for optional documents
+        if (!docInfo.required) {
+            fileName.textContent = file.name;
+            checkmark.style.color = '#4cad69';
+            uploadBox.dataset.verified = 'true';
+            checkAllRequiredDocumentsVerified();
+            return;
+        }
+
+        // Verify document
+        const formData = new FormData();
+        formData.append('document', file);
+        formData.append('document_type', docType);
+
+        try {
+            const response = await fetch('/upload_doc', {
+                method: 'POST',
+                body: formData
+            });
+
+            const result = await response.json();
+            
+            if (result.success) {
+                fileName.textContent = file.name;
+                checkmark.style.color = '#4cad69'; // Green for success
+                uploadBox.dataset.verified = 'true';
+                verifiedDocuments.add(uploadBox.id);
+                
+                // Special handling for Aadhaar verification
+                if (docType === 'aadhaar' && result.validation && result.validation.extracted_info) {
+                    const aadhaarInfo = result.validation.extracted_info;
+                    // You can display extracted Aadhaar info if needed
+                    console.log('Aadhaar info extracted:', aadhaarInfo);
                 }
-                // Verify document
-                const result = await upload_doc(file, docType);
-                if (result.success) {
-                    fileName.textContent = file.name;
-                    checkmark.style.color = '#4cad69'; // Green for success
-                    uploadBox.dataset.verified = 'true';
-                    verifiedDocuments.add(uploadBox.id);
-                } else {
-                    fileName.textContent = `${file.name} (Verification Failed)`;
-                    checkmark.style.color = '#dc2626'; // Red for failure
-                    uploadBox.dataset.verified = 'false';
-                    verifiedDocuments.delete(uploadBox.id);
+            } else {
+                fileName.textContent = `${file.name} (Verification Failed)`;
+                checkmark.style.color = '#dc2626'; // Red for failure
+                uploadBox.dataset.verified = 'false';
+                verifiedDocuments.delete(uploadBox.id);
+                
+                // Show error message for Aadhaar if available
+                if (docType === 'aadhaar' && result.error) {
+                    alert(`Aadhaar verification failed: ${result.error}`);
                 }
-                checkAllRequiredDocumentsVerified();
             }
-        });
+        } catch (error) {
+            console.error('Error:', error);
+            fileName.textContent = `${file.name} (Error)`;
+            checkmark.style.color = '#dc2626';
+            uploadBox.dataset.verified = 'false';
+            verifiedDocuments.delete(uploadBox.id);
+            alert('Error verifying document. Please try again.');
+        }
+        
+        checkAllRequiredDocumentsVerified();
+    }
+});
 
             // Handle drag and drop
             ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {

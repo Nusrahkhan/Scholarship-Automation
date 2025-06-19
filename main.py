@@ -11,7 +11,13 @@ import random
 from dotenv import load_dotenv, dotenv_values
 from sqlalchemy import distinct, extract, desc, func
 
+from flask_cors import CORS  # <-- ✅ Add this line
+
 app = Flask(__name__)
+CORS(app)  # <-- ✅ Add this line just after app is initialized
+
+
+
 
 # Database configuration - use absolute paths
 basedir = os.path.abspath(os.path.dirname(__file__))
@@ -81,12 +87,10 @@ load_dotenv(dotenv_path, override=True)
 #parsed_env = dotenv_values(dotenv_path)
 #print('[ENV] dotenv_values parsed:', parsed_env)
 
-from ocr_model.app.services.ocr_service import OCRService
-from ocr_model.app.services.validation_service import ValidationService
 
-# Initialize services
+from ocr_model.validation import OCRService
 ocr_service = OCRService()
-validation_service = ValidationService()
+
 
 #import utility functions
 from utils import validate_college_email, allowed_file
@@ -111,34 +115,11 @@ def allowed_file(filename):
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in app.config['ALLOWED_EXTENSIONS']
 
-def process_document_upload(file, document_type):
-    print(f"[UPLOAD] process_document_upload called with file: {file.filename}, type: {document_type}")
-    if file and allowed_file(file.filename):
-        try:
-            filename = secure_filename(file.filename)
-            filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-            # Ensure upload directory exists
-            os.makedirs(os.path.dirname(filepath), exist_ok=True)
-            file.save(filepath)
-            print(f"[UPLOAD] Saved file to: {filepath}")
-            # Process document using OCR
-            text = ocr_service.extract_text_with_rotation_correction(filepath)
-            # Validate extracted text
-            validation_result = validation_service.validate_document(text, document_type)
-            # Clean up the uploaded file
-            os.remove(filepath)
-            print(f"[UPLOAD] Validation result: {validation_result}")
-            return validation_result
-        except Exception as e:
-            if os.path.exists(filepath):
-                os.remove(filepath)
-            print(f"Error processing document: {str(e)}")
-            return None
-    return None
 
 # check all documents are verified or not
+"""
 def check_all_documents_verified(student_id):
-    """Check if all required documents are verified for the student's latest application."""
+    #Check if all required documents are verified for the student's latest application.
     try:
         # Get student info
         student = db.session.get(Student, session['user_id'])
@@ -174,6 +155,7 @@ def check_all_documents_verified(student_id):
     except Exception as e:
         print(f"Error checking document verification: {str(e)}")
         return False, "Error checking verification status"
+"""
 
 
 # Mark OTP as used
@@ -822,7 +804,6 @@ def upload_doc():
         return jsonify({'error': 'Unauthorized'}), 401
     
     if request.method == 'GET':
-        # Render the upload form page
         return render_template('upload_doc.html')
     
     try:
@@ -838,35 +819,46 @@ def upload_doc():
         if not document_type:
             return jsonify({'error': 'Document type not specified'}), 400
             
-        # Process the document using OCR
-        result = process_document_upload(file, document_type)
-        print(result)
-        approved = False
-        if isinstance(result, dict) and result.get('status') == 'approved':
-            # Initialize verified_documents in session if not exists
-            if 'verified_documents' not in session:
-                session['verified_documents'] = []
+        # Save file temporarily
+        filename = secure_filename(file.filename)
+        temp_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        file.save(temp_path)
+        
+        try:
+            verification_result = ocr_service.extract_and_verify_document(temp_path, document_type)
 
-            # Add document type to verified list if not already present
-            if document_type not in session['verified_documents']:
-                session['verified_documents'].append(document_type)
-                session.modified = True
+            if verification_result['verified']:
+                # Update session to track verified documents
+                verified_docs = session.get('verified_documents', [])
+                if document_type not in verified_docs:
+                    verified_docs.append(document_type)
+                session['verified_documents'] = verified_docs
 
-            return jsonify({
-                'success': True,
-                'message': 'Document verified successfully',
-                'validation': result
-            })
-        else:
-            return jsonify({
-                'success': False,
-                'error': 'Document verification failed'
-            }, 400)
+                return jsonify({
+                    'success': True,
+                    'message': verification_result['message'],
+                    'data': verification_result.get('data', {})
+                })
+            else:
+                return jsonify({
+                    'success': False,
+                    'error': verification_result['error']
+                }), 400
+            
+        finally:
+            # Clean up temp file
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
+            
+    except Exception as e:
+        print(f"Error processing document: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
+            
             
     except Exception as e:
         print(f"Error verifying document: {str(e)}")
         return jsonify({'error': 'Internal server error'}), 500
-
+"""
 @app.route('/upload_doc_year1', methods=['GET', 'POST'])
 def upload_doc_year1():
     if 'user_id' not in session or session.get('user_type') != 'student':
@@ -928,7 +920,7 @@ def upload_doc_year1():
     except Exception as e:
         print(f"Error verifying document: {str(e)}")
         return jsonify({'error': 'Internal server error'}), 500
-    
+"""
 @app.route('/upload_doc_reg', methods=['GET', 'POST'])
 def upload_doc_reg():
     if 'user_id' not in session or session.get('user_type') != 'student':
@@ -951,46 +943,39 @@ def upload_doc_reg():
         if not document_type:
             return jsonify({'error': 'Document type not specified'}), 400
             
-        # Process the document using OCR
-        result = process_document_upload(file, document_type)
-        print(result)
-        approved = False
-        if isinstance(result, dict):
-            # Check both 'status' and 'validation' keys for 'approved'
-            for key in ['status']:
-                value = result.get(key)
-                if value and 'approved' in str(value).lower():
-                    approved = True
-                    break
-        elif isinstance(result, str):
-            if 'approved' in result.lower():
-                approved = True
+        # Save file temporarily
+        filename = secure_filename(file.filename)
+        temp_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        file.save(temp_path)
 
-        if approved:
-            return jsonify({
-                'success': True,
-                'message': 'Document verified successfully',
-                'validation': result
-            })
-        else:
-            result_text = str(result)
+        try:
+            verification_result = ocr_service.extract_and_verify_document(temp_path, document_type)
+            
+            if verification_result['verified']:
+                # Update session to track verified documents
+                verified_docs = session.get('verified_documents', [])
+                if document_type not in verified_docs:
+                    verified_docs.append(document_type)
+                session['verified_documents'] = verified_docs
 
-        if result_text and 'approved' in result_text.lower():
-            return jsonify({
-                'success': True,
-                'message': 'Document verified successfully',
-                'validation': result
-            })
-        else:
-            return jsonify({
-                'success': False,
-                'error': 'Document verification failed'
-            }, 400)
+                return jsonify({
+                    'success': True,
+                    'message': verification_result['message'],
+                    'data': verification_result.get('data', {})
+                })
+            else:
+                return jsonify({
+                    'success': False,
+                    'error': verification_result['error']
+                }), 400
+        finally:
+            # Clean up temp file
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
             
     except Exception as e:
-        print(f"Error verifying document: {str(e)}")
+        print(f"Error processing document: {str(e)}")
         return jsonify({'error': 'Internal server error'}), 500
-
 
 @app.route('/check_documents_status')
 def check_documents_status():
@@ -1188,7 +1173,7 @@ def progress():
         return redirect(url_for('student_dashboard'))
 
 # logout     
-@app.route('/logout')
+@app.route('/logout', methods = ['GET', 'POST'])
 def logout():
     # Clear the session
     session.clear()

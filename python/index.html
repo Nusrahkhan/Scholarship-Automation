@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Aadhaar OCR - Gemini</title>
+</head>
+<body>
+    <h2>📄 Aadhaar OCR Upload</h2>
+    <input type="file" id="aadhaarImage" accept="image/*">
+    <button onclick="uploadImage()">Upload</button>
+
+    <div id="result" style="margin-top:20px;"></div>
+
+    <script>
+        async function uploadImage() {
+            const fileInput = document.getElementById('aadhaarImage');
+            const file = fileInput.files[0];
+
+            if (!file) {
+                alert("Please select an image file.");
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append("file", file);
+
+            const response = await fetch('http://127.0.0.1:5000/upload_aadhaar', {
+                method: "POST",
+                body: formData
+            });
+
+            const result = await response.json();
+            document.getElementById('result').innerHTML = `
+                <h3>Extracted Details:</h3>
+                <p><strong>Name:</strong> ${result.name}</p>
+                <p><strong>Aadhaar Number:</strong> ${result.aadhaar_number}</p>
+                <p><strong>Date of Birth:</strong> ${result.dob}</p>
+                <p><strong>Valid Aadhaar Number (12 digits)?</strong> ${result.aadhaar_valid ? "✅ Yes" : "❌ No"}</p>
+            `;
+        }
+    </script>
+</body>
+</html>

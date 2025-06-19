@@ -231,12 +231,6 @@
             </ul>
         </nav>
         
-        <div class="absolute bottom-0 w-full p-6">
-            <button id="add-info-btn" class="w-full bg-gradient-to-r from-limeYellow to-lightLime text-gray-700 py-3 rounded-xl shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center space-x-2">
-                <i class="fas fa-plus"></i>
-                <span>Add More Info</span>
-            </button>
-        </div>
     </div>
     
     <!-- Mobile Menu Button -->
@@ -248,17 +242,13 @@
     
     <!-- Main Content -->
     <div class="main-content ml-64 p-8 transition-all duration-300 min-h-screen">
-        <!-- Header with Search -->
+        <!-- Header  -->
         <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 space-y-4 md:space-y-0">
             <div>
                 <h1 class="text-3xl font-bold text-gray-800" id="greeting">Hi! User</h1>
                 <p class="text-gray-500">Welcome to your application dashboard</p>
             </div>
             
-            <div class="relative w-full md:w-64">
-                <input type="text" placeholder="Search..." class="w-full pl-10 pr-4 py-2 rounded-xl border border-gray-200 focus:border-lavenderPurple focus:ring-1 focus:ring-lavenderPurple transition-all duration-200">
-                <i class="fas fa-search absolute left-3 top-3 text-gray-400"></i>
-            </div>
         </div>
         
         <!-- Hero Banner with New Image -->
@@ -337,9 +327,8 @@
                         <i class="fas fa-envelope text-lightLime"></i>
                     </div>
                     <div>
-                        <h4 class="font-medium">New message</h4>
-                        <p class="text-gray-500 text-sm">You have a new message from the admissions office</p>
-                        <p class="text-gray-400 text-xs mt-1">Yesterday</p>
+                        <h4 class="font-medium">Notifications</h4>
+                        <p class="text-gray-500 text-sm">Check the notifications from the admins regularly available on the side bar</p>
                     </div>
                 </div>
                 
@@ -357,52 +346,6 @@
         </div>
     </div>
     
-    <!-- Drawer Overlay -->
-    <div id="overlay" class="overlay fixed inset-0 z-20 hidden opacity-0 transition-opacity duration-300"></div>
-    
-    <!-- Info Drawer -->
-    <div id="info-drawer" class="drawer fixed top-0 right-0 h-full w-80 bg-white z-30 transform translate-x-full transition-transform duration-300 p-6">
-        <div class="flex justify-between items-center mb-6">
-            <h2 class="text-xl font-semibold">Add Information</h2>
-            <button id="close-drawer" class="w-8 h-8 rounded-full flex items-center justify-center hover:bg-gray-100 transition-colors duration-200">
-                <i class="fas fa-times"></i>
-            </button>
-        </div>
-        
-        <form id="info-form" class="space-y-4">
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Year</label>
-                <select class="w-full p-3 rounded-xl border focus:ring-2 focus:ring-lavenderPurple focus:border-transparent transition-all duration-200">
-                    <option value="">Select Year</option>
-                    <option value="1">1st Year</option>
-                    <option value="2">2nd Year</option>
-                    <option value="3">3rd Year</option>
-                    <option value="4">4th Year</option>
-                </select>
-            </div>
-            
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Branch</label>
-                <select class="w-full p-3 rounded-xl border focus:ring-2 focus:ring-lavenderPurple focus:border-transparent transition-all duration-200">
-                    <option value="">Select Branch</option>
-                    <option value="CSE">Computer Science</option>
-                    <option value="IT">Information Technology</option>
-                    <option value="EEE">Electrical Engineering</option>
-                    <option value="AI">Artificial Intelligence</option>
-                    <option value="MECH">Mechanical Engineering</option>
-                </select>
-            </div>
-            
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Additional Notes</label>
-                <textarea class="w-full p-3 rounded-xl border focus:ring-2 focus:ring-lavenderPurple focus:border-transparent transition-all duration-200" rows="3" placeholder="Any additional information..."></textarea>
-            </div>
-            
-            <button type="submit" class="w-full bg-gradient-to-r from-lavenderPurple to-aquaBlue text-white py-3 rounded-xl shadow-md hover:shadow-lg transition-all duration-200 mt-6">
-                Save Information
-            </button>
-        </form>
-    </div>
     
     <script>
         // Fetch user data from the server
@@ -487,49 +430,13 @@
         const overlay = document.getElementById('overlay');
         const infoDrawer = document.getElementById('info-drawer');
         const infoForm = document.getElementById('info-form');
+ 
+
         
-        addInfoBtn.addEventListener('click', function() {
-            overlay.classList.remove('hidden');
-            setTimeout(() => {
-                overlay.style.opacity = '1';
-            }, 10);
-            infoDrawer.classList.remove('translate-x-full');
-        });
-        
-        closeDrawerBtn.addEventListener('click', closeDrawer);
-        overlay.addEventListener('click', closeDrawer);
-        
-        function closeDrawer() {
-            overlay.style.opacity = '0';
-            setTimeout(() => {
-                overlay.classList.add('hidden');
-            }, 300);
-            infoDrawer.classList.add('translate-x-full');
-        }
+  
         
         // Form submission
-        infoForm.addEventListener('submit', function(e) {
-            e.preventDefault();
-            
-            const year = this.querySelector('select:nth-of-type(1)').value;
-            const branch = this.querySelector('select:nth-of-type(2)').value;
-            const notes = this.querySelector('textarea').value;
-            
-            console.log('Submitted info:', { year, branch, notes });
-            
-            // In a real app, you would send this to your backend
-            // fetch('/api/user/info', {
-            //     method: 'POST',
-            //     body: JSON.stringify({ year, branch, notes }),
-            //     headers: {
-            //         'Content-Type': 'application/json'
-            //     }
-            // })
-            
-            // Show a success message
-            alert('Information saved successfully!');
-            closeDrawer();
-        });
+       
         
         // Card click handlers
         const cards = document.querySelectorAll('.glass-card');
@@ -585,7 +492,7 @@
                 list.appendChild(div);
             });
 
-                        // Update notification count
+            // Update notification count
             const count = document.getElementById('notificationCount');
             if (circulars.length > 0) {
                 count.textContent = circulars.length;

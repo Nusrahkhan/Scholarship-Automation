@@ -506,24 +506,53 @@
         };
 
         // Function to verify document using OCR
-        async function upload_doc(file, documentType) {
-            const formData = new FormData();
-            formData.append('document', file);
-            formData.append('document_type', documentType);
+        // async function upload_doc(file, documentType) {
+        //     const formData = new FormData();
+        //     formData.append('document', file);
+        //     formData.append('document_type', documentType);
     
-            try {
-                const response = await fetch('/upload_doc_reg', {
+        //     try {
+        //         const response = await fetch('/upload_doc_reg', {
+        //             method: 'POST',
+        //             body: formData
+        //         });
+    
+        //         const result = await response.json();
+        //         return result;
+        //     } catch (error) {
+        //         console.error('Error:', error);
+        //         return { success: false, error: 'Verification failed' };
+        //     }
+        // }
+
+        // Function to verify document using OCR
+        async function upload_doc(file, documentType) {
+        const formData = new FormData();
+        formData.append('file', file);
+
+        try {
+            if (documentType === 'aadhaar_card') {
+                const response = await fetch('http://127.0.0.1:5050/upload_aadhaar', {
                     method: 'POST',
                     body: formData
                 });
-    
+
                 const result = await response.json();
+                result.success = result.aadhaar_valid === true;
                 return result;
-            } catch (error) {
-                console.error('Error:', error);
-                return { success: false, error: 'Verification failed' };
             }
+
+            // Default success for non-Aadhaar docs
+            return { success: true };
+
+        } catch (error) {
+            console.error('Error verifying Aadhaar:', error);
+            return { success: false, error: 'Aadhaar verification failed' };
         }
+    }
+
+
+        
 
         // Handle file upload for all upload boxes
         document.querySelectorAll('.upload-box').forEach(uploadBox => {
