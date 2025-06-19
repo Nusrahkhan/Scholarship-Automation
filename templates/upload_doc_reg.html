@@ -532,13 +532,127 @@
 
         try {
             if (documentType === 'aadhaar_card') {
-                const response = await fetch('http://127.0.0.1:5050/upload_aadhaar', {
+                const response = await fetch('/upload_aadhaar', {
                     method: 'POST',
                     body: formData
                 });
 
                 const result = await response.json();
                 result.success = result.aadhaar_valid === true;
+                return result;
+            }
+
+            else if (documentType === 'application_form') {
+                const response = await fetch('/verify_ack_form', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+                result.success = result.valid === true;
+                return result;
+            }
+
+            else if (documentType === 'income_certificate') {
+                const response = await fetch('/upload_income_certificate', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+                result.success = result.valid === true;
+                return result;
+            }
+
+            else if (documentType === 'declaration_bond') {
+                const response = await fetch('/upload_declaration_bond', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+                result.success = result.valid === true;
+                return result;
+            }
+            else if (documentType === 'present_year_bonafide') {
+                const response = await fetch('/upload_present_year_bonafide', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+                result.success = result.valid === true;
+                return result;
+            }
+            else if (documentType === 'bonafide_6th_to_inter') {
+                const response = await fetch('/upload_previous_bonafides', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+                result.success = result.valid === true;
+                return result;
+            }
+            else if (documentType === 'ssc_memo') {
+                const response = await fetch('/upload_ssc_memo', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+                result.success = result.valid === true;
+                return result;
+            }
+            else if (documentType === 'inter_diploma_memo') {
+                const response = await fetch('/upload_inter_memo', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+                result.success = result.valid === true;
+                return result;
+            }
+            else if (documentType === 'previous_year_marks_memo') {
+                const response = await fetch('/upload_sem_memo', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+                result.success = result.valid === true;
+                return result;
+            }
+            else if (documentType === 'ration_card') {
+                const response = await fetch('/upload_ration_card', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+                result.success = result.valid === true;
+                return result;
+            }
+
+            else if (documentType === 'bank_passbook') {
+                const response = await fetch('/upload_bank_passbook', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+                result.success = result.valid === true;
+                return result;
+            }
+
+            else if (documentType === 'allotment_order') {
+                const response = await fetch('/upload_allotment_order', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+                result.success = result.valid === true;
+                return result;
+            }
+
+            else if (documentType === 'ou_challan_copy') {
+                const response = await fetch('/upload_ou_common_service_fee', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+                result.success = result.valid === true;
                 return result;
             }
 

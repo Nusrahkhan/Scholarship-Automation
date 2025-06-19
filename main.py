@@ -10,6 +10,7 @@ import sys
 import random
 from dotenv import load_dotenv, dotenv_values
 from sqlalchemy import distinct, extract, desc, func
+from document_verification import *
 
 from flask_cors import CORS  # <-- ✅ Add this line
 
@@ -86,11 +87,6 @@ load_dotenv(dotenv_path, override=True)
 # Print parsed .env values
 #parsed_env = dotenv_values(dotenv_path)
 #print('[ENV] dotenv_values parsed:', parsed_env)
-
-
-from ocr_model.validation import OCRService
-ocr_service = OCRService()
-
 
 #import utility functions
 from utils import validate_college_email, allowed_file
@@ -1377,6 +1373,154 @@ def applic():
         import traceback
         traceback.print_exc()
         return redirect(url_for('admin_dashboard'))
+    
+
+
+
+# Upload documents routes
+
+#document 10 - aadhaar card
+@app.route('/upload_aadhaar', methods=['POST'])
+def upload_aadhaar():
+    if 'file' not in request.files:
+        return jsonify({"error": "No file uploaded", "aadhaar_valid": False}), 400
+
+    file = request.files['file']
+    image_data = file.read()
+    details = extract_aadhar_details(image_data)
+    return jsonify(details)
+
+#document 1
+@app.route('/upload_ack_form', methods=['POST'])
+def upload_ack_form():
+    if 'file' not in request.files:
+        return jsonify({"error": "No file uploaded", "valid": False}), 400
+        
+    file = request.files['file']
+    image_data = file.read()
+    details = extract_ack_form_details(image_data)
+    return jsonify(details)
+
+#document 2
+@app.route('/upload_income_certificate', methods=['POST'])
+def upload_income_certificate():
+    if 'file' not in request.files:
+        return jsonify({"error": "No file uploaded", "valid": False}), 400
+        
+    file = request.files['file']
+    image_data = file.read()
+    details = verify_income_certificate_details(image_data)
+    return jsonify(details)
+
+#document 3
+@app.route('/upload_declaration_form', methods=['POST'])
+def upload_declaration_form():
+    if 'file' not in request.files:
+        return jsonify({"error": "No file uploaded", "valid": False}), 400
+        
+    file = request.files['file']
+    image_data = file.read()
+    details = verify_declaration_form_details(image_data)
+    return jsonify(details)
+
+#document 4
+@app.route('/upload_present_year_bonafide', methods=['POST'])
+def upload_present_year_bonafide():
+    if 'file' not in request.files:
+        return jsonify({"error": "No file uploaded", "valid": False}), 400
+        
+    file = request.files['file']
+    image_data = file.read()
+    details = verify_present_year_bonafide_details(image_data)
+    return jsonify(details)
+
+#document 5
+@app.route('/upload_previous_bonafides', methods=['POST'])
+def upload_previous_bonafides():
+    if 'file' not in request.files:
+        return jsonify({"error": "No file uploaded", "valid": False}), 400
+        
+    file = request.files['file']
+    image_data = file.read()
+    details = verify_previous_bonafides_details(image_data)
+    return jsonify(details)
+
+#document 6
+@app.route('/upload_ssc_memo', methods=['POST'])
+def upload_ssc_memo():
+    if 'file' not in request.files:
+        return jsonify({"error": "No file uploaded", "valid": False}), 400
+        
+    file = request.files['file']
+    image_data = file.read()
+    details = verify_tenth_memo_details(image_data)
+    return jsonify(details)
+
+#document 7
+@app.route('/upload_inter_memo', methods=['POST'])
+def upload_inter_memo():
+    if 'file' not in request.files:
+        return jsonify({"error": "No file uploaded", "valid": False}), 400
+        
+    file = request.files['file']
+    image_data = file.read()
+    details = verify_inter_memo_details(image_data)
+    return jsonify(details)
+
+#document 8
+@app.route('/upload_previous_sem_memo', methods=['POST'])
+def upload_previous_sem_memo():
+    if 'file' not in request.files:
+        return jsonify({"error": "No file uploaded", "valid": False}), 400
+        
+    file = request.files['file']
+    image_data = file.read()
+    details = verify_previous_sem_memo_details(image_data)
+    return jsonify(details)
+
+#document 9
+@app.route('/upload_ration_card', methods=['POST'])
+def upload_ration_card():
+    if 'file' not in request.files:
+        return jsonify({"error": "No file uploaded", "valid": False}), 400
+        
+    file = request.files['file']
+    image_data = file.read()
+    details = verify_ration_card_details(image_data)
+    return jsonify(details)
+
+#document 11
+@app.route('/upload_bank_passbook', methods=['POST'])
+def upload_bank_passbook():
+    if 'file' not in request.files:
+        return jsonify({"error": "No file uploaded", "valid": False}), 400
+        
+    file = request.files['file']
+    image_data = file.read()
+    details = verify_bank_passbook_details(image_data)
+    return jsonify(details)
+
+#document 12
+@app.route('/upload_allotment_order', methods=['POST'])
+def upload_allotment_order():
+    if 'file' not in request.files:
+        return jsonify({"error": "No file uploaded", "valid": False}), 400
+        
+    file = request.files['file']
+    image_data = file.read()
+    details = verify_allotment_order_details(image_data)
+    return jsonify(details)
+
+#document 13
+@app.route('/upload_ou_common_service_fee', methods=['POST'])
+def upload_ou_common_service_fee():
+    if 'file' not in request.files:
+        return jsonify({"error": "No file uploaded", "valid": False}), 400
+        
+    file = request.files['file']
+    image_data = file.read()
+    details = verify_ou_common_service_fee_details(image_data)
+    return jsonify(details)
 
 if __name__ == '__main__':
     app.run(debug = True, port = 8000)
