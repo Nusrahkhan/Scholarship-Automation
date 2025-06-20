@@ -494,15 +494,18 @@
             'upload-2': 'income_certificate',
             'upload-3': 'declaration_bond',
             'upload-4': 'present_year_bonafide',
-            'upload-5': 'bonafide_6th_to_inter',
-            'upload-6': 'ssc_memo',
-            'upload-7': 'inter_diploma_memo',
-            'upload-8': 'previous_year_marks_memo',
-            'upload-9': 'ration_card',
-            'upload-10': 'aadhaar_card',
-            'upload-11': 'bank_passbook',
-            'upload-12': 'allotment_order',
-            'upload-13': 'ou_challan_copy'
+            'upload-5': 'school_bonafide',
+            'upload-6': 'intermediate_bonafide',
+            'upload-7': 'ssc_memo',
+            'upload-8': 'inter_diploma_memo',
+            'upload-9': 'previous_year_marks_memo_odd',
+            'upload-10': 'previous_year_marks_memo_even',
+            'upload-11': 'ration_card',
+            'upload-12': 'aadhaar_card',
+            'upload-13': 'bank_passbook',
+            'upload-14': 'allotment_order',
+            'upload-15': 'ou_challan_copy',
+            'upload-16': 'caste_certificate'
         };
 
         // Function to verify document using OCR
@@ -543,7 +546,7 @@
             }
 
             else if (documentType === 'application_form') {
-                const response = await fetch('/verify_ack_form', {
+                const response = await fetch('/upload_ack_form', {
                     method: 'POST',
                     body: formData
                 });
@@ -580,8 +583,8 @@
                 result.success = result.valid === true;
                 return result;
             }
-            else if (documentType === 'bonafide_6th_to_inter') {
-                const response = await fetch('/upload_previous_bonafides', {
+            else if (documentType === 'school_bonafide') {
+                const response = await fetch('/upload_school_bonafide', {
                     method: 'POST',
                     body: formData
                 });
@@ -589,6 +592,17 @@
                 result.success = result.valid === true;
                 return result;
             }
+
+            else if (documentType === 'inter_bonafide') {
+                const response = await fetch('/upload_inter_bonafide', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+                result.success = result.valid === true;
+                return result;
+            }
+
             else if (documentType === 'ssc_memo') {
                 const response = await fetch('/upload_ssc_memo', {
                     method: 'POST',
@@ -607,7 +621,7 @@
                 result.success = result.valid === true;
                 return result;
             }
-            else if (documentType === 'previous_year_marks_memo') {
+            else if (documentType === 'previous_year_marks_memo_odd') {
                 const response = await fetch('/upload_sem_memo', {
                     method: 'POST',
                     body: formData
@@ -616,6 +630,17 @@
                 result.success = result.valid === true;
                 return result;
             }
+
+            else if (documentType === 'previous_year_marks_memo_even') {
+                const response = await fetch('/upload_sem_memo', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+                result.success = result.valid === true;
+                return result;
+            }
+
             else if (documentType === 'ration_card') {
                 const response = await fetch('/upload_ration_card', {
                     method: 'POST',
@@ -655,6 +680,17 @@
                 result.success = result.valid === true;
                 return result;
             }
+
+            else if (documentType === 'caste_certificate') {
+                const response = await fetch('/upload_caste_certificate', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+                result.success = result.valid === true;
+                return result;
+            }
+
 
             // Default success for non-Aadhaar docs
             return { success: true };
