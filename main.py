@@ -1522,5 +1522,27 @@ def upload_ou_common_service_fee():
     details = verify_ou_common_service_fee_details(image_data)
     return jsonify(details)
 
+from rag import PDFQuestionAnswering
+
+# Load the PDF and keep the QA object ready (do this once at startup)
+pdf_qa = PDFQuestionAnswering(api_key='AIzaSyAesqyliwOM5cGUKejbfLLTewG28ckIDgM')
+pdf_path = r"C:\Users\saria\OneDrive\Desktop\AWS WEBSITE\Scholarship-Automation\Scholarship rag.pdf"
+pdf_qa.load_pdf(pdf_path)
+
+@app.route('/api/ask', methods=['POST'])
+def ask_rag():
+    data = request.get_json()
+    question = data.get('question', '')
+    if not question:
+        return jsonify({'error': 'No question provided'}), 400
+    try:
+        # Get answer from RAG model
+        result = pdf_qa.qa_chain.invoke({"query": question})
+        answer = result.get("result", "Sorry, I couldn't find an answer.")
+        return jsonify({'answer': answer})
+    except Exception as e:
+        print(f"RAG error: {str(e)}")
+        return jsonify({'error': 'Error processing your question.'}), 500
+
 if __name__ == '__main__':
     app.run(debug = True, port = 8000)

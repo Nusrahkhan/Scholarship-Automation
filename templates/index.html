@@ -690,30 +690,37 @@
                         </div>
                     </div>
                 `;
-
                 chatInput.value = '';
                 chatMessages.scrollTop = chatMessages.scrollHeight;
 
-                // Simulate bot response after a short delay
-                setTimeout(() => {
-                    const responses = [
-                        "I can help you with information about our scholarship programs.",
-                        "The application deadline is April 15th for the next academic year.",
-                        "You'll need to submit transcripts, proof of income, and recommendation letters.",
-                        "Please check the eligibility criteria on our website.",
-                        "You can track your application status through your account dashboard."
-                    ];
-                    const randomResponse = responses[Math.floor(Math.random() * responses.length)];
-
+                // Call backend RAG API
+                fetch('/api/ask', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ question: message })
+                })
+                .then(res => res.json())
+                .then(data => {
+                    let botMsg = data.answer || data.error || "Sorry, I couldn't find an answer.";
                     chatMessages.innerHTML += `
                         <div class="mb-4">
                             <div class="bg-gray-100 rounded-lg p-3 inline-block max-w-xs">
-                                <p class="text-sm">${randomResponse}</p>
+                                <p class="text-sm">${botMsg}</p>
                             </div>
                         </div>
                     `;
                     chatMessages.scrollTop = chatMessages.scrollHeight;
-                }, 1000);
+                })
+                .catch(() => {
+                    chatMessages.innerHTML += `
+                        <div class="mb-4">
+                            <div class="bg-gray-100 rounded-lg p-3 inline-block max-w-xs">
+                                <p class="text-sm">Sorry, there was an error contacting the assistant.</p>
+                            </div>
+                        </div>
+                    `;
+                    chatMessages.scrollTop = chatMessages.scrollHeight;
+                });
             }
         }
 
