@@ -6,20 +6,26 @@
     <title>Admin Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root {
-            --bg-dark: #190019;
-            --header-dark: #2B124C;
-            --section-dark: #522B5B;
-            --accent: #864F6C;
-            --card-light: #DFB6B2;
-            --text-light: #FBE4D8;
+            --bg-dark: #F4F8D3;
+            --header-dark: #8E7DBE;
+            --section-dark: #A6D6D6;
+            --accent: #F7CFD8;
+            --card-light: #F7CFD8;
+            --text-light: #8E7DBE;
         }
         body {
             font-family: 'Poppins', sans-serif;
             background-color: var(--bg-dark);
             color: var(--text-light);
+            overflow-x: hidden; /* Prevent horizontal scroll */
+        }
+        .container, .mx-auto, .px-6 {
+            max-width: 100vw;
+            box-sizing: border-box;
         }
         .hero-gradient {
             background: linear-gradient(135deg, var(--header-dark), var(--section-dark));
@@ -39,18 +45,62 @@
             background: var(--accent);
             border-radius: 4px;
         }
+        /* Sidebar transition and hidden state */
+        #sidebar {
+            transition: transform 0.3s ease;
+            background-color: #e3b8b3 !important;
+        }
+        #sidebar.sidebar-hidden {
+            transform: translateX(-100%);
+        }
+        #sidebar.sidebar-visible {
+            transform: translateX(0);
+        }
+        #mainContent.sidebar-pushed {
+            margin-left: 16rem; /* 64px * 4 = 256px = w-64 */
+        }
+        #mainContent.centered-content {
+            margin-left: 0 !important;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            transition: all 0.3s;
+        }
+        @media (max-width: 767px) {
+            #mainContent.sidebar-pushed {
+                margin-left: 0;
+            }
+        }
+        footer {
+            background-color: #e3b8b3 !important;
+        }
+        .sidebar-text,
+        #sidebar .text-[#F4F8D3],
+        #sidebar .text-[#F4F8D3],
+        #sidebar .text-[#F4F8D3],
+        footer,
+        footer .text-[#F4F8D3] {
+            color: #6b4a71 !important;
+        }
+        #sidebar ul li:hover {
+            background-color: #F4F8D3 !important;
+        }
     </style>
 </head>
 <body class="min-h-screen">
     <!-- Header/Nav -->
-    <header class="bg-[#2B124C] py-4 px-6 shadow-lg">
+    <header class="bg-white/60 backdrop-blur-md fixed top-0 left-0 right-0 z-50 px-6 py-4 shadow-lg">
         <div class="container mx-auto flex justify-between items-center">
             <div class="flex items-center space-x-2">
-                <i class="fas fa-user-shield text-2xl text-[#FBE4D8]"></i>
-                <h1 class="text-xl md:text-2xl font-bold text-[#FBE4D8]">Admin Dashboard</h1>
+                <!-- Sidebar toggle button -->
+                <button id="sidebarToggle" class="text-[#2B124C] mr-4 focus:outline-none text-2xl">
+                    <i class="fas fa-bars"></i>
+                </button>
+                <i class="fas fa-user-shield text-2xl text-[#2B124C]"></i>
+                <h1 class="text-xl md:text-2xl font-bold text-[#2B124C]">Admin Dashboard</h1>
             </div>
             <div class="flex items-center space-x-4">
-                <button class="text-[#FBE4D8] hover:text-[#DFB6B2] transition">
+                <button class="text-[#2B124C] hover:text-[#522B5B] transition">
                     <i class="fas fa-bell text-xl"></i>
                 </button>
                 <div class="w-10 h-10 rounded-full bg-[#522B5B] flex items-center justify-center text-[#FBE4D8]">
@@ -61,65 +111,60 @@
     </header>
 
     <!-- Sidebar -->
-    <aside class="fixed top-0 left-0 h-full w-64 bg-[#2B124C] shadow-lg z-40 flex flex-col pt-24 hidden md:flex">
-        <div class="flex flex-col items-center space-y-6">
-            <div class="w-16 h-16 rounded-full bg-[#522B5B] flex items-center justify-center text-[#FBE4D8] text-2xl font-bold">
-                <i class="fas fa-user-shield"></i>
+    <aside id="sidebar" class="fixed top-0 left-0 h-full w-64 shadow-lg flex flex-col pt-6 sidebar-hidden transition-transform" style="z-index:60;">
+        <!-- Sidebar toggle button (always visible) -->
+        <button id="sidebarClose" class="self-end mr-4 mb-4 text-[#FBE4D8] hover:text-[#DFB6B2] focus:outline-none text-2xl">
+            <i class="fas fa-angle-left"></i>
+        </button>
+        <div class="flex flex-col items-center space-y-6 pt-12">
+            <div class="w-16 h-16 rounded-full bg-[#522B5B] flex items-center justify-center sidebar-text text-2xl font-bold">
+                <i class="fas fa-user-shield" style="color:#e3b8b3;"></i>
             </div>
+            <!-- Sidebar user info -->
             <div class="text-center">
-                <h2 class="text-lg font-semibold text-[#FBE4D8]">Admin</h2>
-                <p class="text-sm text-[#DFB6B2]">Welcome, {{ username }}</p>
+                <h2 class="text-lg font-semibold" style="color:#3b2352;">Admin</h2>
+                <p class="text-sm" style="color:#3b2352;">Welcome, {{ username }}</p>
             </div>
         </div>
+        <!-- Sidebar navigation -->
         <nav class="mt-10 flex-1">
             <ul>
                 <li class="mx-4 mb-2 p-3 flex items-center space-x-3 rounded-lg cursor-pointer hover:bg-[#522B5B] transition"
                     onclick="window.location.href='/'">
-                    <i class="fas fa-home w-6 text-center text-[#DFB6B2]"></i>
-                    <span class="text-[#FBE4D8]">Dashboard</span>
+                    <i class="fas fa-home w-6 text-center" style="color:#3b2352;"></i>
+                    <span style="color:#3b2352;">Dashboard</span>
                 </li>
                 <li class="mx-4 mb-2 p-3 flex items-center space-x-3 rounded-lg cursor-pointer hover:bg-[#522B5B] transition"
                     onclick="window.location.href='/applications_list'">
-                    <i class="fas fa-list-alt w-6 text-center text-[#DFB6B2]"></i>
-                    <span class="text-[#FBE4D8]">Applications</span>
+                    <i class="fas fa-list-alt w-6 text-center" style="color:#3b2352;"></i>
+                    <span style="color:#3b2352;">Applications</span>
                 </li>
                 <li class="mx-4 mb-2 p-3 flex items-center space-x-3 rounded-lg cursor-pointer hover:bg-[#522B5B] transition"
                     onclick="openCircularModal()">
-                    <i class="fas fa-bullhorn w-6 text-center text-[#DFB6B2]"></i>
-                    <span class="text-[#FBE4D8]">Upload Circular</span>
+                    <i class="fas fa-bullhorn w-6 text-center" style="color:#3b2352;"></i>
+                    <span style="color:#3b2352;">Upload Circular</span>
                 </li>
                 <li class="mx-4 mb-2 p-3 flex items-center space-x-3 rounded-lg cursor-pointer hover:bg-red-900 transition"
                     onclick="window.location.href='/logout'">
-                    <i class="fas fa-sign-out-alt w-6 text-center text-[#DFB6B2]"></i>
-                    <span class="text-[#DFB6B2]">Logout</span>
+                    <i class="fas fa-sign-out-alt w-6 text-center" style="color:#3b2352;"></i>
+                    <span style="color:#3b2352;">Logout</span>
                 </li>
             </ul>
         </nav>
     </aside>
 
     <!-- Main Content -->
-    <div class="md:ml-64">
+    <div id="mainContent" class="md:ml-64 transition-all duration-300">
         <!-- Hero Section -->
-        <section class="hero-gradient">
-            <div class="container mx-auto px-6 py-12 md:py-20">
-                <div class="flex flex-col md:flex-row items-center">
-                    <div class="md:w-1/2 mb-10 md:mb-0 md:pr-10">
-                        <h1 class="text-3xl md:text-5xl font-bold mb-4 text-[#FBE4D8]">Welcome, Admin</h1>
-                        <p class="text-lg md:text-xl mb-8 text-[#FBE4D8] opacity-90">
-                            Overview of applications, reviews, and circulars.
-                        </p>
-                        <button class="bg-[#2B124C] hover:bg-[#522B5B] text-[#FBE4D8] px-6 py-3 rounded-lg font-medium transition-all shadow-lg">
-                            Quick Dashboard
-                        </button>
-                    </div>
-                    <div class="md:w-1/2 flex justify-center">
-                        <div class="relative">
-                            <div class="w-full h-full bg-[#522B5B] rounded-2xl opacity-40 absolute -inset-2"></div>
-                            <img src="https://images.unsplash.com/photo-1551288049-bebda4e38f71?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1470&q=80" 
-                                 alt="Admin Dashboard" 
-                                 class="w-full max-w-lg rounded-xl shadow-2xl object-cover h-64 md:h-80">
-                        </div>
-                    </div>
+        <section class="w-full" style="background: url('https://i.pinimg.com/736x/43/8f/01/438f018f04cf7fffd2eaf5cab899173f.jpg') center center / cover no-repeat;">
+            <div class="w-full max-w-none px-0 py-24 md:py-40 bg-black bg-opacity-30">
+                <div class="flex flex-col items-center justify-center text-center max-w-2xl mx-auto px-6">
+                    <h1 class="text-4xl md:text-6xl font-bold mb-6 text-[#FBE4D8] heading-font" style="font-family: 'Playfair Display', serif;">
+                        Welcome, Admin
+                    </h1>
+                    <p class="text-2xl md:text-3xl mb-10 text-[#FBE4D8] opacity-90 heading-font" style="font-family: 'Playfair Display', serif;">
+                        Overview of applications, reviews, and circulars.
+                    </p>
                 </div>
             </div>
         </section>
@@ -284,12 +329,6 @@
         </div>
     </div>
 
-    <footer class="bg-[#2B124C] py-6 mt-12">
-        <div class="container mx-auto px-6 text-center text-[#DFB6B2]">
-            <p>© 2023 University Admin Portal. All rights reserved.</p>
-        </div>
-    </footer>
-
     <script>
         function openCircularModal() {
             document.getElementById('circularModal').classList.remove('hidden');
@@ -324,45 +363,73 @@
             }
         });
 
-async function completeAppointment(applicationId) {
-    try {
-        const response = await fetch(`/complete_appointment/${applicationId}`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
+        async function completeAppointment(applicationId) {
+            try {
+                const response = await fetch(`/complete_appointment/${applicationId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    // Update UI
+                    const row = document.getElementById(`appointment-row-${applicationId}`);
+                    const statusCell = row.querySelector('td:nth-child(6) span');
+                    const actionCell = row.querySelector('td:last-child');
+                    // Update status badge with new theme colors
+                    statusCell.className = 'px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-[#2B124C] text-[#FBE4D8]';
+                    statusCell.textContent = 'Completed';
+                    
+                    // Remove approve button
+                    const approveButton = actionCell.querySelector('button');
+                    if (approveButton) {
+                        approveButton.remove();
+                    }
+                    
+                    // Update stats
+                    const completedCount = document.querySelector('.text-4xl.font-bold');
+                    completedCount.textContent = parseInt(completedCount.textContent) + 1;
+                    
+                    alert('Appointment marked as completed');
+                } else {
+                    alert(result.error || 'Failed to complete appointment');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error completing appointment');
             }
-        });
-        
-        const result = await response.json();
-        
-        if (response.ok) {
-            // Update UI
-            const row = document.getElementById(`appointment-row-${applicationId}`);
-            const statusCell = row.querySelector('td:nth-child(6) span');
-            const actionCell = row.querySelector('td:last-child');
-            // Update status badge with new theme colors
-            statusCell.className = 'px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-[#2B124C] text-[#FBE4D8]';
-            statusCell.textContent = 'Completed';
-            
-            // Remove approve button
-            const approveButton = actionCell.querySelector('button');
-            if (approveButton) {
-                approveButton.remove();
-            }
-            
-            // Update stats
-            const completedCount = document.querySelector('.text-4xl.font-bold');
-            completedCount.textContent = parseInt(completedCount.textContent) + 1;
-            
-            alert('Appointment marked as completed');
-        } else {
-            alert(result.error || 'Failed to complete appointment');
         }
-    } catch (error) {
-        console.error('Error:', error);
-        alert('Error completing appointment');
-    }
-}
-</script>
+
+        document.getElementById('sidebarToggle').addEventListener('click', function() {
+            const sidebar = document.getElementById('sidebar');
+            const mainContent = document.getElementById('mainContent');
+            sidebar.classList.remove('sidebar-hidden');
+            sidebar.classList.add('sidebar-visible');
+            mainContent.classList.add('sidebar-pushed');
+            mainContent.classList.remove('centered-content');
+        });
+
+        document.getElementById('sidebarClose').addEventListener('click', function() {
+            const sidebar = document.getElementById('sidebar');
+            const mainContent = document.getElementById('mainContent');
+            sidebar.classList.add('sidebar-hidden');
+            sidebar.classList.remove('sidebar-visible');
+            mainContent.classList.remove('sidebar-pushed');
+            mainContent.classList.add('centered-content');
+        });
+
+       
+        window.addEventListener('DOMContentLoaded', function() {
+            const sidebar = document.getElementById('sidebar');
+            const mainContent = document.getElementById('mainContent');
+            sidebar.classList.add('sidebar-hidden');
+            sidebar.classList.remove('sidebar-visible');
+            mainContent.classList.remove('sidebar-pushed');
+            mainContent.classList.add('centered-content');
+        });
+    </script>
 </body>
 </html>
