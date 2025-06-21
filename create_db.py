@@ -40,10 +40,10 @@ from models import Student, Admin, Teacher, Circular, TeacherUnavailability, Sch
 def create_database():
     try:
         with app.app_context():
-            # Remove existing database
-            if os.path.exists(db_path):
-                os.remove(db_path)
-                print("Removed existing database")
+            for table in [OTP, ScholarshipApplication, TeacherUnavailability, Circular, Teacher, Admin, Student]:
+                db.session.query(table).delete()
+            db.session.commit()
+            print("Cleared all old records from all tables")
 
             # Create all tables
             db.create_all()

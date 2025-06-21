@@ -557,6 +557,26 @@
             'upload-15': 'attendance_form'
         };
 
+        const requiredDocumentKeys = [
+            'upload-1', //'application_form',
+            'upload-2', //'acknowledgment_receipt',
+            'upload-3', //'convener_allotment_order',
+            'upload-4', //'10th_marks_memo',
+            'upload-5', //'intermediate_long_memo',
+            'upload-6', //'school_bonafide',
+            'upload-7', //'intermediate_bonafide',
+            'upload-8', //'intermediate_transfer_certificate',
+            'upload-9', //'college_bonafide',
+            'upload-10', //'income_certificate',
+            'upload-12', //'aadhaar',
+            'upload-13', //'bank_passbook',
+            'upload-15', //'attendance_form'
+        ];
+
+        // Optional documents: upload-11 (caste_certificate), upload-14 (ration_card)
+
+
+
         // Function to verify document using OCR
        async function upload_doc(file, documentType) {
         const formData = new FormData();
@@ -564,7 +584,7 @@
 
         try {
             //Document 12
-            if (documentType === 'aadhaar_card') {
+            if (documentType === 'aadhaar') {
                 const response = await fetch('/upload_aadhaar', {
                     method: 'POST',
                     body: formData
@@ -588,7 +608,7 @@
             
             // Document 2
             else if (documentType === 'acknowledgment_receipt') {
-                const response = await fetch('/upload_acK_form', {
+                const response = await fetch('/upload_ack_form', {
                     method: 'POST',
                     body: formData
                 });
@@ -610,7 +630,7 @@
 
             // Document 4
             else if (documentType === '10th_marks_memo') {
-                const response = await fetch('/upload_ssc_memo', {
+                const response = await fetch('/upload_tenth_memo', {
                     method: 'POST',
                     body: formData
                 });
@@ -676,7 +696,7 @@
 
             //Document 10
             else if (documentType === 'income_certificate') {
-                const response = await fetch('/upload_income_certificate', {
+                const response = await fetch('/upload_original_income_certificate', {
                     method: 'POST',
                     body: formData
                 });
@@ -718,7 +738,7 @@
                 return result;
             }
 
-            // Document 14
+            // Document 15
             else if (documentType === 'attendance_form') {
                 const response = await fetch('/upload_attendance_form', {
                     method: 'POST',
@@ -729,8 +749,10 @@
                 return result;
             }
 
-            // Default success for non-Aadhaar docs
-            return { success: true };
+            // If document type is not recognized
+            else {
+                throw new Error('Unknown document type');
+            }
 
         } catch (error) {
             console.error('Error verifying Aadhaar:', error);
@@ -819,11 +841,26 @@
         
         // Handle submit button
         document.querySelector('.submit-btn').addEventListener('click', () => {
-            const uploadedFiles = document.querySelectorAll('.upload-preview:not(.hidden)');
-            if (uploadedFiles.length === 15) {
-                alert('All documents uploaded successfully! Your submission is being processed.');
+            let allVerified = true;
+            let missingDocs = [];
+
+            requiredDocumentKeys.forEach(key => {
+                const uploadBox = document.getElementById(key);
+                if (!uploadBox || uploadBox.dataset.verified !== 'true') {
+                    allVerified = false;
+                    // Use label text for user-friendly message
+                    const label = uploadBox ? uploadBox.querySelector('label') : null;
+                    missingDocs.push(label ? label.textContent.trim() : key);
+                }
+            });
+
+            if (allVerified) {
+                alert('All required documents uploaded and verified! Your submission is being processed.');
+                // Optionally, submit the form or trigger your backend logic here
             } else {
-                alert(`Please upload all 15 required documents. You've uploaded ${uploadedFiles.length} of 15.`);
+                alert(
+                    `Please upload and verify all required documents before submitting.\nMissing/Unverified:\n- ${missingDocs.join('\n- ')}`
+                );
             }
         });
     </script>

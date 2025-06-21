@@ -322,11 +322,43 @@
             });
 
             // Submit slip and show booking section
-            submitSlipBtn.addEventListener('click', function () {
-                bookingSection.classList.remove('hidden');
-                renderCalendar();
-                // Scroll to booking section
-                bookingSection.scrollIntoView({ behavior: 'smooth' });
+            submitSlipBtn.addEventListener('click', async function () {
+                if (!fileInput.files.length) return;
+
+                // Prepare form data
+                const formData = new FormData();
+                formData.append('file', fileInput.files[0]);
+
+                // Disable button and show loading state
+                submitSlipBtn.disabled = true;
+                submitSlipBtn.textContent = "Verifying...";
+
+                // Send to backend for verification
+                try {
+                    const response = await fetch('/upload_meeseva_slip', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    const result = await response.json();
+
+                    // Check if verification is successful
+                    if (result.valid === true || result.valid === "true") {
+                        bookingSection.classList.remove('hidden');
+                        renderCalendar();
+                        // Optionally show a success message
+                        submitSlipBtn.textContent = "Verified!";
+                        submitSlipBtn.classList.add('bg-green-600');
+                        submitSlipBtn.disabled = true;
+                    } else {
+                        alert("Verification failed. Please upload a valid Meeseva slip.");
+                        submitSlipBtn.disabled = false;
+                        submitSlipBtn.textContent = "Submit Slip";
+                    }
+                } catch (error) {
+                    alert("An error occurred during verification.");
+                    submitSlipBtn.disabled = false;
+                    submitSlipBtn.textContent = "Submit Slip";
+                }
             });
 
             // Calendar navigation
@@ -382,10 +414,40 @@
             });
 
             // Complete process
-            completeProcessBtn.addEventListener('click', function () {
-                if (!this.disabled) {
-                    alert(`Appointment confirmed for ${selectedDate.toDateString()} at ${selectedTimeSlot}`);
-                    // Here you would typically submit the form to your backend
+            completeProcessBtn.addEventListener('click', async function () {
+                if (!selectedDate || !selectedTimeSlot) return;
+
+                const formData = new FormData();
+                formData.append('file', fileInput.files[0]);
+                formData.append('appointment_date', selectedDate.toISOString().split('T')[0]);
+                formData.append('time_slot', selectedTimeSlot);
+
+                try {
+                    const response = await fetch('/book_appointment', {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    const result = await response.json();
+                    if (result.success) {
+                        // Now finalize the appointment
+                        const finalizeResponse = await fetch('/complete_appointment_process', {
+                            method: 'POST',
+                            body: formData
+                        });
+
+                        const finalizeResult = await finalizeResponse.json();
+                        if (finalizeResult.success) {
+                            alert('✅ Appointment process completed successfully!');
+                            window.location.href = result.redirect || '/student_dashboard';
+                        } else {
+                            alert('⚠️ Appointment booked, but finalization failed: ' + finalizeResult.message);
+                        }
+                    } else {
+                        alert('⚠️ Appointment booking failed: ' + result.message);
+                    }
+                } catch (error) {
+                    alert('An error occurred. Please try again.');
                 }
             });
 

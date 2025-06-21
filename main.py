@@ -801,60 +801,10 @@ def upload_doc():
     
     if request.method == 'GET':
         return render_template('upload_doc.html')
-    
-    try:
-        if 'document' not in request.files:
-            return jsonify({'error': 'No document provided'}), 400
-            
-        file = request.files['document']
-        document_type = request.form.get('document_type')
-        
-        if not file or file.filename == '':
-            return jsonify({'error': 'No file selected'}), 400
-            
-        if not document_type:
-            return jsonify({'error': 'Document type not specified'}), 400
-            
-        # Save file temporarily
-        filename = secure_filename(file.filename)
-        temp_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-        file.save(temp_path)
-        
-        try:
-            verification_result = ocr_service.extract_and_verify_document(temp_path, document_type)
+ 
 
-            if verification_result['verified']:
-                # Update session to track verified documents
-                verified_docs = session.get('verified_documents', [])
-                if document_type not in verified_docs:
-                    verified_docs.append(document_type)
-                session['verified_documents'] = verified_docs
 
-                return jsonify({
-                    'success': True,
-                    'message': verification_result['message'],
-                    'data': verification_result.get('data', {})
-                })
-            else:
-                return jsonify({
-                    'success': False,
-                    'error': verification_result['error']
-                }), 400
-            
-        finally:
-            # Clean up temp file
-            if os.path.exists(temp_path):
-                os.remove(temp_path)
-            
-    except Exception as e:
-        print(f"Error processing document: {str(e)}")
-        return jsonify({'error': 'Internal server error'}), 500
-            
-            
-    except Exception as e:
-        print(f"Error verifying document: {str(e)}")
-        return jsonify({'error': 'Internal server error'}), 500
-"""
+
 @app.route('/upload_doc_year1', methods=['GET', 'POST'])
 def upload_doc_year1():
     if 'user_id' not in session or session.get('user_type') != 'student':
@@ -863,60 +813,8 @@ def upload_doc_year1():
     if request.method == 'GET':
         # Render the upload form page
         return render_template('upload_doc_year1.html')
-    
-    try:
-        if 'document' not in request.files:
-            return jsonify({'error': 'No document provided'}), 400
             
-        file = request.files['document']
-        document_type = request.form.get('document_type')
-        
-        if not file or file.filename == '':
-            return jsonify({'error': 'No file selected'}), 400
-            
-        if not document_type:
-            return jsonify({'error': 'Document type not specified'}), 400
-            
-        # Process the document using OCR
-        result = process_document_upload(file, document_type)
-        print(result)
-        approved = False
-        if isinstance(result, dict):
-            # Check both 'status' and 'validation' keys for 'approved'
-            for key in ['status']:
-                value = result.get(key)
-                if value and 'approved' in str(value).lower():
-                    approved = True
-                    break
-        elif isinstance(result, str):
-            if 'approved' in result.lower():
-                approved = True
 
-        if approved:
-            return jsonify({
-                'success': True,
-                'message': 'Document verified successfully',
-                'validation': result
-            })
-        else:
-            result_text = str(result)
-
-        if result_text and 'approved' in result_text.lower():
-            return jsonify({
-                'success': True,
-                'message': 'Document verified successfully',
-                'validation': result
-            })
-        else:
-            return jsonify({
-                'success': False,
-                'error': 'Document verification failed'
-            }, 400)
-            
-    except Exception as e:
-        print(f"Error verifying document: {str(e)}")
-        return jsonify({'error': 'Internal server error'}), 500
-"""
 @app.route('/upload_doc_reg', methods=['GET', 'POST'])
 def upload_doc_reg():
     if 'user_id' not in session or session.get('user_type') != 'student':
@@ -926,56 +824,11 @@ def upload_doc_reg():
         # Render the upload form page
         return render_template('upload_doc_reg.html')
 
-    try:
-        if 'document' not in request.files:
-            return jsonify({'error': 'No document provided'}), 400
-            
-        file = request.files['document']
-        document_type = request.form.get('document_type')
-        
-        if not file or file.filename == '':
-            return jsonify({'error': 'No file selected'}), 400
-            
-        if not document_type:
-            return jsonify({'error': 'Document type not specified'}), 400
-            
-        # Save file temporarily
-        filename = secure_filename(file.filename)
-        temp_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-        file.save(temp_path)
-
-        try:
-            verification_result = ocr_service.extract_and_verify_document(temp_path, document_type)
-            
-            if verification_result['verified']:
-                # Update session to track verified documents
-                verified_docs = session.get('verified_documents', [])
-                if document_type not in verified_docs:
-                    verified_docs.append(document_type)
-                session['verified_documents'] = verified_docs
-
-                return jsonify({
-                    'success': True,
-                    'message': verification_result['message'],
-                    'data': verification_result.get('data', {})
-                })
-            else:
-                return jsonify({
-                    'success': False,
-                    'error': verification_result['error']
-                }), 400
-        finally:
-            # Clean up temp file
-            if os.path.exists(temp_path):
-                os.remove(temp_path)
-            
-    except Exception as e:
-        print(f"Error processing document: {str(e)}")
-        return jsonify({'error': 'Internal server error'}), 500
-
+      
+"""
 @app.route('/check_documents_status')
 def check_documents_status():
-    """API endpoint to check document verification status."""
+    
     if 'user_id' not in session or session.get('user_type') != 'student':
         return jsonify({'verified': False, 'message': 'Unauthorized'}), 401
 
@@ -984,75 +837,87 @@ def check_documents_status():
         'verified': verified,
         'message': message
     })
+"""
 
-# appointment routes
+
+#Appointment routes
+@app.route('/upload_meeseva_slip', methods=['POST'])
+def upload_meeseva_slip():
+    file = request.files['file']
+    image_data = file.read()
+
+    # OCR processing
+    details = verify_meeseva_slip_details(image_data)
+    print(details)
+
+    # Lookup app ID
+    student = db.session.get(Student, session['user_id'])
+    application = db.session.query(ScholarshipApplication).filter_by(
+        roll_number=student.email.split('@')[0],  # Extract roll number from email
+    ).order_by(ScholarshipApplication.created_at.desc()).first()
+    if application:
+        details["application_id"] = application.id
+
+    return jsonify(details)
+
+
 @app.route('/book_appointment', methods=['POST'])
 def book_appointment():
-    if 'user_id' not in session:
-        return jsonify({'success': False, 'error': 'Unauthorized'}), 401
-
-    # Get form data
-    application_id = request.form.get('application_id')
-    
-    # Check if application exists
-    application = ScholarshipApplication.query.filter_by(id=application_id).first()
-    if not application:
-        return jsonify({'success': False, 'error': 'Invalid application ID'}), 404
-    
-    # Get form data
-    appointment_date = request.form.get('appointment_date')
+    file = request.files.get('file')
+    student = db.session.get(Student, session['user_id'])
+    application = db.session.query(ScholarshipApplication).filter_by(
+        roll_number=student.email.split('@')[0],  # Extract roll number from email
+    ).order_by(ScholarshipApplication.created_at.desc()).first()
+    application_id = application.id
+    date_str = request.form.get('appointment_date')
     time_slot = request.form.get('time_slot')
-    slip_file = request.files.get('slip')
 
-    # Validate input
-    if not all([appointment_date, time_slot, slip_file]):
-        return jsonify({'success': False, 'error': 'Missing required fields'}), 400
-    
-    # OCR and validate slip
-    # Save slip temporarily
-    temp_path = os.path.join(app.config['UPLOAD_FOLDER'], secure_filename(slip_file.filename))
-    slip_file.save(temp_path)
+    if not all([file, application_id, date_str, time_slot]):
+        return jsonify({"success": False, "message": "Missing data"}), 400
+
     try:
-        text = ocr_service.extract_text_with_rotation_correction(temp_path)
-        validation_result = validation_service.validate_document(text, 'meeseva_slip')
-    finally:
-        if os.path.exists(temp_path):
-            os.remove(temp_path)
+        appointment = Appointment(
+            application_id=application_id,
+            slip_data=file.read(),
+            slip_name=file.filename,
+            appointment_date=datetime.strptime(date_str, "%Y-%m-%d").date(),
+            time_slot=time_slot
+        )
+        db.session.add(appointment)
+        application = ScholarshipApplication.query.get(application_id)
+        if application:
+            application.scholarship_state = 'appointment_booked'
 
-    # Check validation result
-    approved = False
-        # Check validation result (status key only)
-    status = validation_result.get('status', '').lower() if isinstance(validation_result, dict) else ''
-    if 'approved' not in status:
-        return jsonify({'success': False, 'error': 'Meeseva slip verification failed', 'details': validation_result}), 400
+        db.session.commit()
+        return jsonify({"success": True, "redirect": "/student_dashboard"})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "message": str(e)})
     
-    # Prevent double booking for the same application and slot
-    existing = Appointment.query.filter_by(
-        application_id=application_id,
-        appointment_date=datetime.strptime(appointment_date, "%Y-%m-%d").date(),
-        time_slot=time_slot
-    ).first()
-    if existing:
-        return jsonify({'success': False, 'error': 'This slot is already booked for your application.'}), 409
+# Route to finalize the appointment and update state
+@app.route('/complete_appointment_process', methods=['POST'])
+def complete_appointment_process():
+    student = db.session.get(Student, session['user_id'])
+    application = db.session.query(ScholarshipApplication).filter_by(
+        roll_number=student.email.split('@')[0],  # Extract roll number from email
+    ).order_by(ScholarshipApplication.created_at.desc()).first()
+    application_id = application.id if application else None
+    if not application_id:
+        return jsonify({"success": False, "message": "Missing application ID"}), 400
 
+    try:
+        application = ScholarshipApplication.query.get(application_id)
+        if application:
+            # CORRECTED: Update to the proper state name
+            application.scholarship_state = 'appointment_booked'
+            db.session.commit()
+            return jsonify({"success": True})
+        else:
+            return jsonify({"success": False, "message": "Application not found"}), 404
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "message": str(e)}), 500
 
-    # Save slip data as binary
-    slip_file.seek(0)
-    slip_data = slip_file.read()
-    slip_name = slip_file.filename
-
-    # Create appointment
-    new_appointment = Appointment(
-        application_id=application_id,
-        slip_data=slip_data,
-        slip_name=slip_name,
-        appointment_date=datetime.strptime(appointment_date, "%Y-%m-%d").date(),
-        time_slot=time_slot
-    )
-    db.session.add(new_appointment)
-    db.session.commit()
-
-    return jsonify({'success': True, 'message': 'Appointment booked successfully.'}), 200
 
 # Appointment page route
 @app.route('/appointment', methods=['GET'])
@@ -1135,13 +1000,7 @@ def progress():
                     next_page = '/list_of_doc_reg'
         elif application.scholarship_state == 'documents_verified':
             current_step = 3  # Documents verified by admin
-            if application.lateral_entry:
-                next_page = '/upload_doc'
-            else:
-                if str(application.year) == '1':
-                    next_page = '/upload_year1'
-                else:
-                    next_page = '/upload_doc_reg'
+            next_page = '/appointment'  # Redirect to appointment page
         elif application.scholarship_state == 'appointment_booked':
             current_step = 4  # Biometric done and appointment booked
             next_page = None
@@ -1390,7 +1249,7 @@ def upload_aadhaar():
     details = extract_aadhar_details(image_data)
     return jsonify(details)
 
-#document 1
+#document acknowledgement form
 @app.route('/upload_ack_form', methods=['POST'])
 def upload_ack_form():
     if 'file' not in request.files:
@@ -1401,7 +1260,55 @@ def upload_ack_form():
     details = extract_ack_form_details(image_data)
     return jsonify(details)
 
-#document 2
+#document application form
+@app.route('/upload_application_form', methods=['POST'])
+def upload_application_form():
+    if 'file' not in request.files:
+        return jsonify({"error": "No file uploaded", "valid": False}), 400
+
+    file = request.files['file']
+    image_data = file.read()
+
+    # --- Fetch the year from the ScholarshipApplication table ---
+    # Example: get the latest application for the logged-in student
+    student = db.session.get(Student, session['user_id'])
+    application = db.session.query(ScholarshipApplication).filter_by(
+        roll_number=student.email.split('@')[0],  # Extract roll number from email
+    ).order_by(ScholarshipApplication.created_at.desc()).first()
+    year = application.year if application else None
+    lateral_entry = application.lateral_entry if application else None
+
+
+    # --- Pass year to the verification function ---
+    details = verify_application_form(image_data, year, lateral_entry)
+    return jsonify(details)
+
+
+#document previous sem memo form
+@app.route('/upload_sem_memo', methods=['POST'])
+def upload_sem_memo():
+    if 'file' not in request.files:
+        return jsonify({"error": "No file uploaded", "valid": False}), 400
+
+    file = request.files['file']
+    image_data = file.read()
+
+    # --- Fetch the year from the ScholarshipApplication table ---
+    # Example: get the latest application for the logged-in student
+    student = db.session.get(Student, session['user_id'])
+    application = db.session.query(ScholarshipApplication).filter_by(
+        roll_number=student.email.split('@')[0],  # Extract roll number from email
+    ).order_by(ScholarshipApplication.created_at.desc()).first()
+    year = application.year if application else None
+    roll_number = application.roll_number if application else None
+
+
+    # --- Pass year to the verification function ---
+    details = verify_previous_sem_memo_details(image_data, year, roll_number)
+    return jsonify(details)
+
+
+#document income certificate
 @app.route('/upload_income_certificate', methods=['POST'])
 def upload_income_certificate():
     if 'file' not in request.files:
@@ -1410,6 +1317,17 @@ def upload_income_certificate():
     file = request.files['file']
     image_data = file.read()
     details = verify_income_certificate_details(image_data)
+    return jsonify(details)
+
+#document original income certificate- for 1st yrs
+@app.route('/upload_original_income_certificate', methods=['POST'])
+def upload_original_income_certificate():
+    if 'file' not in request.files:
+        return jsonify({"error": "No file uploaded", "valid": False}), 400
+        
+    file = request.files['file']
+    image_data = file.read()
+    details = verify_original_income_certificate_details(image_data)
     return jsonify(details)
 
 #document 3
@@ -1423,7 +1341,7 @@ def upload_declaration_form():
     details = verify_declaration_form_details(image_data)
     return jsonify(details)
 
-#document 4
+#document college bonafide
 @app.route('/upload_present_year_bonafide', methods=['POST'])
 def upload_present_year_bonafide():
     if 'file' not in request.files:
@@ -1431,23 +1349,46 @@ def upload_present_year_bonafide():
         
     file = request.files['file']
     image_data = file.read()
-    details = verify_present_year_bonafide_details(image_data)
+    details = verify_current_bonafide_details(image_data)
     return jsonify(details)
 
-#document 5
-@app.route('/upload_previous_bonafides', methods=['POST'])
-def upload_previous_bonafides():
+#document declaration bond certificate
+@app.route('/upload_declaration_bond', methods=['POST'])
+def upload_declaration_bond():
     if 'file' not in request.files:
         return jsonify({"error": "No file uploaded", "valid": False}), 400
         
     file = request.files['file']
     image_data = file.read()
-    details = verify_previous_bonafides_details(image_data)
+    details = verify_declaration_form_details(image_data)
     return jsonify(details)
 
-#document 6
-@app.route('/upload_ssc_memo', methods=['POST'])
-def upload_ssc_memo():
+
+#document school bonafide
+@app.route('/upload_school_bonafide', methods=['POST'])
+def upload_school_bonafide():
+    if 'file' not in request.files:
+        return jsonify({"error": "No file uploaded", "valid": False}), 400
+        
+    file = request.files['file']
+    image_data = file.read()
+    details = verify_tenth_bonafide_details(image_data)
+    return jsonify(details)
+
+#document inter bonafide
+@app.route('/upload_inter_bonafide', methods=['POST'])
+def upload_inter_bonafide():
+    if 'file' not in request.files:
+        return jsonify({"error": "No file uploaded", "valid": False}), 400
+        
+    file = request.files['file']
+    image_data = file.read()
+    details = verify_inter_bonafide_details(image_data)
+    return jsonify(details)
+
+#document 10th memo
+@app.route('/upload_tenth_memo', methods=['POST'])
+def upload_tenth_memo():
     if 'file' not in request.files:
         return jsonify({"error": "No file uploaded", "valid": False}), 400
         
@@ -1456,7 +1397,7 @@ def upload_ssc_memo():
     details = verify_tenth_memo_details(image_data)
     return jsonify(details)
 
-#document 7
+#document inter_memo
 @app.route('/upload_inter_memo', methods=['POST'])
 def upload_inter_memo():
     if 'file' not in request.files:
@@ -1478,7 +1419,7 @@ def upload_previous_sem_memo():
     details = verify_previous_sem_memo_details(image_data)
     return jsonify(details)
 
-#document 9
+#document ration card
 @app.route('/upload_ration_card', methods=['POST'])
 def upload_ration_card():
     if 'file' not in request.files:
@@ -1489,7 +1430,7 @@ def upload_ration_card():
     details = verify_ration_card_details(image_data)
     return jsonify(details)
 
-#document 11
+#document bank passbook
 @app.route('/upload_bank_passbook', methods=['POST'])
 def upload_bank_passbook():
     if 'file' not in request.files:
@@ -1500,16 +1441,6 @@ def upload_bank_passbook():
     details = verify_bank_passbook_details(image_data)
     return jsonify(details)
 
-#document 12
-@app.route('/upload_allotment_order', methods=['POST'])
-def upload_allotment_order():
-    if 'file' not in request.files:
-        return jsonify({"error": "No file uploaded", "valid": False}), 400
-        
-    file = request.files['file']
-    image_data = file.read()
-    details = verify_allotment_order_details(image_data)
-    return jsonify(details)
 
 #document 13
 @app.route('/upload_ou_common_service_fee', methods=['POST'])
@@ -1522,11 +1453,78 @@ def upload_ou_common_service_fee():
     details = verify_ou_common_service_fee_details(image_data)
     return jsonify(details)
 
+#document allotment order
+@app.route('/upload_allotment_order', methods=['POST'])
+def upload_allotment_order():
+    if 'file' not in request.files:
+        return jsonify({"error": "No file uploaded", "valid": False}), 400
+        
+    file = request.files['file']
+    image_data = file.read()
+    details = verify_allotment_order_details(image_data)
+    return jsonify(details)
+
+#document inter tc
+@app.route('/upload_intermediate_tc', methods=['POST'])
+def upload_intermediate_tc():
+    if 'file' not in request.files:
+        return jsonify({"error": "No file uploaded", "valid": False}), 400
+        
+    file = request.files['file']
+    image_data = file.read()
+    details = verify_inter_tc_details(image_data)
+    return jsonify(details)
+
+#document caste certificate
+@app.route('/upload_caste_certificate', methods=['POST'])
+def upload_caste_certificate():
+    if 'file' not in request.files:
+        return jsonify({"error": "No file uploaded", "valid": False}), 400
+        
+    file = request.files['file']
+    image_data = file.read()
+    details = verify_caste_certificate_details(image_data)
+    return jsonify(details)
+
+#document attendance form
+@app.route('/upload_attendance_form', methods=['POST'])
+def upload_attendance_form():
+    if 'file' not in request.files:
+        return jsonify({"error": "No file uploaded", "valid": False}), 400
+        
+    file = request.files['file']
+    image_data = file.read()
+    details = verify_attendance_form_details(image_data)
+    return jsonify(details)
+
+# Mark documents as verified for a particular scholarship application
+@app.route('/mark_documents_verified', methods=['POST'])
+def mark_documents_verified():
+    if 'user_id' not in session or session.get('user_type') != 'student':
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 401
+
+    try:
+        # Get the latest application for the student
+        student = db.session.get(Student, session['user_id'])
+        application = db.session.query(ScholarshipApplication).filter_by(
+            roll_number=student.email.split('@')[0]
+        ).order_by(ScholarshipApplication.created_at.desc()).first()
+
+        if not application:
+            return jsonify({'success': False, 'message': 'No application found'}), 404
+
+        application.scholarship_state = 'documents_verified'
+        db.session.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': str(e)}), 500
+
 from rag import PDFQuestionAnswering
 
 # Load the PDF and keep the QA object ready (do this once at startup)
 pdf_qa = PDFQuestionAnswering(api_key='AIzaSyAesqyliwOM5cGUKejbfLLTewG28ckIDgM')
-pdf_path = r"C:\Users\saria\OneDrive\Desktop\AWS WEBSITE\Scholarship-Automation\Scholarship rag.pdf"
+pdf_path = r"C:\Users\HOME\OneDrive\Desktop\scholarship portal\Scholarship rag.pdf"
 pdf_qa.load_pdf(pdf_path)
 
 @app.route('/api/ask', methods=['POST'])
