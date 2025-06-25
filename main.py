@@ -1523,7 +1523,9 @@ def mark_documents_verified():
 from rag import PDFQuestionAnswering
 
 # Load the PDF and keep the QA object ready (do this once at startup)
-pdf_qa = PDFQuestionAnswering(api_key='AIzaSyAesqyliwOM5cGUKejbfLLTewG28ckIDgM')
+load_dotenv()
+api_key = os.getenv("PDF_QA_API_KEY")
+pdf_qa = PDFQuestionAnswering(api_key)
 pdf_path = r"C:\Users\HOME\OneDrive\Desktop\scholarship portal\Scholarship rag.pdf"
 pdf_qa.load_pdf(pdf_path)
 

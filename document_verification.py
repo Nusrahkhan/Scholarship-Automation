@@ -5,10 +5,11 @@ import io
 import json
 import google.generativeai as genai
 from datetime import datetime
+import os
 
 
 # Configure Gemini API
-GEMINI_API_KEY = "AIzaSyCA6kXkJEEfsYEqAxf8GXU2ZAK_f6LaJrI"
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 genai.configure(api_key=GEMINI_API_KEY)
 model = genai.GenerativeModel('gemini-1.5-flash')
 
