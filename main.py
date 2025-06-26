@@ -728,7 +728,9 @@ def get_timetable(teacher_id):
     if 'user_id' not in session:
         return jsonify({'error': 'Unauthorized'}), 401
 
-    teacher = db.session.get_or_404(Teacher, teacher_id)
+    teacher = db.session.get(Teacher, teacher_id)
+    if not teacher:
+        abort(404)
 
     if not teacher.time_table:
         return jsonify({'error': 'No timetable found'}), 404
@@ -1495,6 +1497,17 @@ def upload_attendance_form():
     file = request.files['file']
     image_data = file.read()
     details = verify_attendance_form_details(image_data)
+    return jsonify(details)
+
+#document diploma bonafide
+@app.route('/upload_diploma_bonafide', methods=['POST'])
+def upload_diploma_bonafide():
+    if 'file' not in request.files:
+        return jsonify({"error": "No file uploaded", "valid": False}), 400
+        
+    file = request.files['file']
+    image_data = file.read()
+    details = verify_diploma_bonafide_details(image_data)
     return jsonify(details)
 
 # Mark documents as verified for a particular scholarship application

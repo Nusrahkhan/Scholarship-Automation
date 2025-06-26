@@ -750,9 +750,8 @@
             }
 
             // If document type is not recognized
-            else {
-                throw new Error('Unknown document type');
-            }
+            console.warn('Unhandled document type:', documentType);
+            return { success: false, error: 'Document type not handled in frontend' };
 
         } catch (error) {
             console.error('Error verifying Aadhaar:', error);
@@ -840,7 +839,7 @@
             });
         
         // Handle submit button
-        document.querySelector('.submit-btn').addEventListener('click', () => {
+        document.querySelector('.submit-btn').addEventListener('click', async () => {
             let allVerified = true;
             let missingDocs = [];
 
@@ -855,8 +854,20 @@
             });
 
             if (allVerified) {
-                alert('All required documents uploaded and verified! Your submission is being processed.');
-                // Optionally, submit the form or trigger your backend logic here
+                try {
+                    const response = await fetch('/mark_documents_verified', {
+                        method: 'POST'
+                    });
+                    const result = await response.json();
+                    if (result.success) {
+                        alert('All required documents uploaded and verified!');
+                        window.location.href = '/appointment';
+                    } else {
+                        alert('Error updating application status: ' + (result.message || 'Unknown error'));
+                    }
+                } catch (err) {
+                    alert('Network error while updating application status.');
+                }
             } else {
                 alert(
                     `Please upload and verify all required documents before submitting.\nMissing/Unverified:\n- ${missingDocs.join('\n- ')}`

@@ -541,22 +541,39 @@
     <script>
         // Document type mapping
         const documentTypes = {
-            'upload-1': { type: 'registration_form', required: true },
-            'upload-2': { type: 'acknowledgment_receipt', required: true },
-            'upload-3': { type: 'ecet_allotment', required: true },
-            'upload-4': { type: 'ssc_certificate', required: true },
-            'upload-5': { type: 'diploma_memo', required: true },
-            'upload-6': { type: 'school_bonafide', required: true },
-            'upload-7': { type: 'diploma_bonafide', required: true },
-            'upload-8': { type: 'diploma_transfer', required: true },
-            'upload-9': { type: 'college_bonafide', required: true },
-            'upload-10': { type: 'income_certificate', required: true },
-            'upload-11': { type: 'caste_certificate', required: true },
-            'upload-12': { type: 'aadhaar', required: true },            
-            'upload-13': { type: 'bank_passbook', required: true },
-            'upload-14': { type: 'ration_card', required: false }, // Optional document
-            'upload-15': { type: 'attendance_form', required: true }
+            'upload-1': 'registration_form',
+            'upload-2': 'acknowledgment_receipt',
+            'upload-3': 'ecet_allotment',
+            'upload-4': 'ssc_certificate',
+            'upload-5': 'diploma_memo',
+            'upload-6': 'school_bonafide',
+            'upload-7': 'diploma_bonafide',
+            'upload-8': 'diploma_transfer',
+            'upload-9': 'college_bonafide',
+            'upload-10': 'income_certificate',
+            'upload-11': 'caste_certificate',
+            'upload-12':  'aadhaar',            
+            'upload-13':  'bank_passbook',
+            'upload-14': 'ration_card', // Optional document
+            'upload-15': 'attendance_form',
         };
+
+        const requiredDocumentKeys = [
+            'upload-1', 
+            'upload-2', 
+            'upload-3',  
+            'upload-4', 
+            'upload-5',  
+            'upload-6', 
+            'upload-7',  
+            'upload-8',  
+            'upload-9',  
+            'upload-10',
+            'upload-12', 
+            'upload-13', 
+            'upload-14', 
+            'upload-15', 
+        ];
 
         // Set to keep track of verified documents
         const verifiedDocuments = new Set();
@@ -587,17 +604,148 @@
         // Function to verify document using OCR
         async function upload_doc(file, documentType) {
             const formData = new FormData();
-            formData.append('document', file);
-            formData.append('document_type', documentType);
+            formData.append('file', file);
     
             try {
-                const response = await fetch('/upload_doc', {
+            if (documentType === 'aadhaar_card') {
+                const response = await fetch('/upload_aadhaar', {
                     method: 'POST',
                     body: formData
                 });
-    
+
                 const result = await response.json();
+                result.success = result.aadhaar_valid === true;
                 return result;
+            }
+            else if (documentType === 'registration_form') {
+                const response = await fetch('/upload_application_form', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+                result.success = result.valid === true;
+                return result;
+            } 
+            else if (documentType === 'acknowledgment_receipt') {
+                const response = await fetch('/upload_ack_form', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+                result.success = result.valid === true;
+                return result;
+            }
+            else if (documentType === 'convener_allotment_order') {
+                const response = await fetch('/upload_allotment_order', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+                result.success = result.valid === true;
+                return result;
+            }
+            else if (documentType === 'ssc_certificate') {
+                const response = await fetch('/upload_tenth_memo', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+                result.success = result.valid === true;
+                return result;
+            }
+            else if (documentType === 'diploma_memo') {
+                const response = await fetch('/upload_inter_memo', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+                result.success = result.valid === true;
+                return result;
+            }
+            else if (documentType === 'school_bonafide') {
+                const response = await fetch('/upload_school_bonafide', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+                result.success = result.valid === true;
+                return result;
+            }
+            else if (documentType === 'diploma_bonafide') {
+                const response = await fetch('/upload_diploma_bonafide', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+                result.success = result.valid === true;
+                return result;
+            }
+            else if (documentType === 'diploma_transfer') {
+                const response = await fetch('/upload_intermediate_tc', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+                result.success = result.valid === true;
+                return result;
+            }
+            else if (documentType === 'college_bonafide') {
+                const response = await fetch('/upload_present_year_bonafide', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+                result.success = result.valid === true;
+                return result;
+            }
+            else if (documentType === 'income_certificate') {
+                const response = await fetch('/upload_income_certificate', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+                result.success = result.valid === true;
+                return result;
+            }
+            else if (documentType === 'caste_certificate') {
+                const response = await fetch('/upload_caste_certificate', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+                result.success = result.valid === true;
+                return result;
+            }
+            else if (documentType === 'bank_passbook') {
+                const response = await fetch('/upload_bank_passbook', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+                result.success = result.valid === true;
+                return result;
+            }
+            else if (documentType === 'ration_card') {
+                const response = await fetch('/upload_ration_card', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+                result.success = result.valid === true;
+                return result;
+            }
+            else if (documentType === 'attendance_form') {
+                const response = await fetch('/upload_attendance_form', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+                result.success = result.valid === true;
+                return result;
+            }
+            console.warn('Unhandled document type:', documentType);
+            return { success: false, error: 'Document type not handled' };
+           
             } catch (error) {
                 console.error('Error:', error);
                 return { success: false, error: 'Verification failed' };
@@ -615,76 +763,32 @@
         const checkmark = uploadBox.querySelector('.checkmark');
         
         // Handle file selection with OCR verification
-// Update the file upload handler in the script section
-input.addEventListener('change', async (e) => {
-    if (input.files.length) {
-        const file = input.files[0];
-        const docInfo = documentTypes[uploadBox.id];
-        const docType = docInfo.type;
-        
-        // Show loading state
-        fileName.textContent = 'Verifying document...';
-        uploadContent.classList.add('hidden');
-        uploadPreview.classList.remove('hidden');
-        uploadBox.classList.add('active');
+            // Handle file selection with OCR verification
+            input.addEventListener('change', async (e) => {
+                if (input.files.length) {
+                    const file = input.files[0];
+                    const docType = documentTypes[uploadBox.id];
 
-        // Skip verification for optional documents
-        if (!docInfo.required) {
-            fileName.textContent = file.name;
-            checkmark.style.color = '#4cad69';
-            uploadBox.dataset.verified = 'true';
-            checkAllRequiredDocumentsVerified();
-            return;
-        }
+                    // Show loading state
+                    fileName.textContent = 'Verifying document...';
+                    uploadContent.classList.add('hidden');
+                    uploadPreview.classList.remove('hidden');
+                    uploadBox.classList.add('active');
 
-        // Verify document
-        const formData = new FormData();
-        formData.append('document', file);
-        formData.append('document_type', docType);
-
-        try {
-            const response = await fetch('/upload_doc', {
-                method: 'POST',
-                body: formData
+                    // Verify document
+                    const result = await upload_doc(file, docType);
+                    
+                    if (result.success) {
+                        fileName.textContent = file.name;
+                        checkmark.style.color = '#4cad69'; // Green for success
+                        uploadBox.dataset.verified = 'true';
+                    } else {
+                        fileName.textContent = `${file.name} (Verification Failed)`;
+                        checkmark.style.color = '#dc2626'; // Red for failure
+                        uploadBox.dataset.verified = 'false';
+                    }
+                }
             });
-
-            const result = await response.json();
-            
-            if (result.success) {
-                fileName.textContent = file.name;
-                checkmark.style.color = '#4cad69'; // Green for success
-                uploadBox.dataset.verified = 'true';
-                verifiedDocuments.add(uploadBox.id);
-                
-                // Special handling for Aadhaar verification
-                if (docType === 'aadhaar' && result.validation && result.validation.extracted_info) {
-                    const aadhaarInfo = result.validation.extracted_info;
-                    // You can display extracted Aadhaar info if needed
-                    console.log('Aadhaar info extracted:', aadhaarInfo);
-                }
-            } else {
-                fileName.textContent = `${file.name} (Verification Failed)`;
-                checkmark.style.color = '#dc2626'; // Red for failure
-                uploadBox.dataset.verified = 'false';
-                verifiedDocuments.delete(uploadBox.id);
-                
-                // Show error message for Aadhaar if available
-                if (docType === 'aadhaar' && result.error) {
-                    alert(`Aadhaar verification failed: ${result.error}`);
-                }
-            }
-        } catch (error) {
-            console.error('Error:', error);
-            fileName.textContent = `${file.name} (Error)`;
-            checkmark.style.color = '#dc2626';
-            uploadBox.dataset.verified = 'false';
-            verifiedDocuments.delete(uploadBox.id);
-            alert('Error verifying document. Please try again.');
-        }
-        
-        checkAllRequiredDocumentsVerified();
-    }
-});
 
             // Handle drag and drop
             ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
@@ -716,53 +820,54 @@ input.addEventListener('change', async (e) => {
                 }
             });
             
-            // Update remove button handler
-        removeBtn.addEventListener('click', (e) => {
+           // Update remove button handler
+            removeBtn.addEventListener('click', (e) => {
                     e.stopPropagation();
                     input.value = '';
                     uploadContent.classList.remove('hidden');
                     uploadPreview.classList.add('hidden');
                     uploadBox.classList.remove('active');
                     uploadBox.dataset.verified = 'false';
-                    checkmark.style.color = '#6c2c4c';
-                    //ration wala
-                    verifiedDocuments.delete(uploadBox.id);
-                    checkAllRequiredDocumentsVerified();
+                    checkmark.style.color = '#6c2c4c'; // Reset color
                 });
             });
         
         // Handle submit button
+        // Handle submit button
         document.querySelector('.submit-btn').addEventListener('click', async () => {
-            if (checkAllRequiredDocumentsVerified()) {
-                try {
-                    // Update application status before redirecting
-                    const response = await fetch('/update_application_status', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({
-                            status: 'documents_verified'
-                        })
-                    });
+            let allVerified = true;
+            let missingDocs = [];
 
-                    if (response.ok) {
+            requiredDocumentKeys.forEach(key => {
+                const uploadBox = document.getElementById(key);
+                if (!uploadBox || uploadBox.dataset.verified !== 'true') {
+                    allVerified = false;
+                    // Use label text for user-friendly message
+                    const label = uploadBox ? uploadBox.querySelector('label') : null;
+                    missingDocs.push(label ? label.textContent.trim() : key);
+                }
+            });
+            if (allVerified) {
+                try {
+                    const response = await fetch('/mark_documents_verified', {
+                        method: 'POST'
+                    });
+                    const result = await response.json();
+                    if (result.success) {
+                        alert('All required documents uploaded and verified!');
                         window.location.href = '/appointment';
                     } else {
-                        alert('Error updating application status. Please try again.');
+                        alert('Error updating application status: ' + (result.message || 'Unknown error'));
                     }
-            } catch (error) {
-                console.error('Error:', error);
-                alert('An error occurred. Please try again.');
+                } catch (err) {
+                    alert('Network error while updating application status.');
+                }
+            } else {
+                alert(
+                    `Please upload and verify all required documents before submitting.\nMissing/Unverified:\n- ${missingDocs.join('\n- ')}`
+                );
             }
-        } else {
-            const missingDocs = Object.entries(documentTypes)
-                .filter(([docId, value]) => value.required && !verifiedDocuments.has(docId))
-                .map(([_, value]) => value.type.replace(/_/g, ' ').toUpperCase());
-                
-            alert(`Please ensure all required documents are verified.\nMissing documents: ${missingDocs.join(', ')}`);
-        }
-    });
+        });
     </script>
 </body>
 </html>

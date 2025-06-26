@@ -833,11 +833,11 @@
 
 
             console.warn('Unhandled document type:', documentType);
-            return { success: false, error: 'Document type not handled in frontend' };
+            return { success: false, error: 'Document type not handled' };
 
         } catch (error) {
-            console.error('Error verifying Aadhaar:', error);
-            return { success: false, error: 'Aadhaar verification failed' };
+            console.error('Error verifying:', error);
+            return { success: false, error: 'verification failed' };
         }
     }
 

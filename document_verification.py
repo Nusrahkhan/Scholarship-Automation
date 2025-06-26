@@ -1,11 +1,11 @@
-from flask import Flask, request, jsonify
-from flask_cors import CORS
 from PIL import Image
 import io
 import json
 import google.generativeai as genai
 from datetime import datetime
 import os
+from pdf2image import convert_from_bytes
+
 
 
 # Configure Gemini API
@@ -444,11 +444,12 @@ def verify_inter_bonafide_details(image_data):
     prompt = """
     You are an intelligent OCR system. Given an image of an Intermediate Bonafide Certificate:
     1. Extract these details:
+        - Heading
         - Applicant Name
         - College Name or College Code
         - Date
     2. Verify these critical elements:
-        - Presence of a heading containing 'BONAFIDE CERTIFICATE', 'INTERMEDIATE BONAFIDE CERTIFICATE', 'BONAFIDE & CONDUCT CERTIFICATE', or 'CONDUCT CERTIFICATE' (case-insensitive)
+        - The heading must exactly match one of the following: 'BONAFIDE CERTIFICATE', 'INTERMEDIATE BONAFIDE CERTIFICATE', 'STUDY AND CONDUCT CERTIFICATE', 'BONAFIDE & CONDUCT CERTIFICATE', or 'CONDUCT CERTIFICATE' (case-insensitive). No other heading variations are allowed.
         - Presence of a name
         - Presence of a college name or college code
         - Presence of a date
@@ -456,6 +457,7 @@ def verify_inter_bonafide_details(image_data):
     Return JSON with extracted details and validation flags:
     {
       "extracted": {
+        "heading": "",
         "name": "",
         "college_name_or_code": "",
         "date": ""
@@ -505,6 +507,7 @@ def verify_inter_bonafide_details(image_data):
     except Exception as e:
         return {
             "extracted": {
+                "heading": "",
                 "name": "",
                 "college_name_or_code": "",
                 "date": ""
@@ -516,7 +519,6 @@ def verify_inter_bonafide_details(image_data):
             "valid": False,
             "error": str(e)
         }
-    
 #document 5.2 - School Bonafide
 def verify_tenth_bonafide_details(image_data):
     prompt = """
@@ -525,7 +527,7 @@ def verify_tenth_bonafide_details(image_data):
         - Applicant Name
         - Institution Name or School Name
     2. Verify these critical elements:
-        - Presence of a heading containing 'BONAFIDE CERTIFICATE', '10TH BONAFIDE CERTIFICATE', 'BONOFIDE & CONDUCT CERTIFICATE', or 'CONDUCT CERTIFICATE' (case-insensitive)
+        - The heading must exactly match one of the following: 'BONAFIDE CERTIFICATE', '10TH BONAFIDE CERTIFICATE', 'BONOFIDE & CONDUCT CERTIFICATE', or 'CONDUCT CERTIFICATE' (case-insensitive). No other heading variations are allowed.
         - Presence of a name
         - Presence of an institution name or school name
     
@@ -585,8 +587,7 @@ def verify_tenth_bonafide_details(image_data):
             "error": str(e)
         }
 
-import mimetypes
-from pdf2image import convert_from_bytes
+
 
 
 #document 6 - Tenth Memo
@@ -686,7 +687,7 @@ def verify_inter_memo_details(image_data):
         - Roll Number
         - Board Name
     2. Verify these critical elements:
-        - Presence of a heading containing 'INTERMEDIATE PASS CERTIFICATE-CUM-MEMORANDUM OF MARKS', 'MEMORANDUM OF MARKS', or 'INTER MEMO' (case-insensitive)
+        - The heading must exactly match one of the following:'INTERMEDIATE PASS CERTIFICATE-CUM-MEMORANDUM OF MARKS' or 'INTER MEMO' (case-insensitive). No other heading variations are allowed.
         - Presence of a name
         - Presence of a roll number
         - Presence of a board name (e.g., 'TELENGANA STATE BOARD OF INTERMEDIATE EDUCATION')
@@ -1366,6 +1367,7 @@ def verify_application_form(image_data, year, lateral_entry):
         json_end = result_text.rfind('}') + 1
         json_part = result_text[json_start:json_end]
         result = json.loads(json_part)
+        print(result)
 
         # Final validation
         result["valid"] = (
@@ -1378,6 +1380,7 @@ def verify_application_form(image_data, year, lateral_entry):
             result.get("has_course_details", False)
         )
 
+        print(result)
         return result
 
     except Exception as e:
@@ -1414,7 +1417,7 @@ def verify_inter_tc_details(image_data):
         - Father's Name
         - Admission Number
     2. Verify these critical elements:
-        - Presence of a heading containing 'TRANSFER CERTIFICATE' (case-insensitive)
+        - The heading must exactly match : 'TRANSFER CERTIFICATE' (case-insensitive). No other heading variations are allowed.
         - Presence of a student name
         - Presence of a college name
         - Presence of a father's name
@@ -1554,6 +1557,87 @@ def verify_meeseva_slip_details(image_data):
             "has_application_number": False,
             "has_applicant_name": False,
             "has_success_timestamp": False,
+            "valid": False,
+            "error": str(e)
+        }
+
+# Diploma bonafide (LE)
+def verify_diploma_bonafide_details(image_data):
+    prompt = """
+    You are an intelligent OCR system. Given an image of a Diploma Bonafide Certificate:
+    1. Extract these details:
+        - ODC No
+        - S. No
+        - Applicant Name
+        - Top Heading
+    2. Verify these critical elements:
+        - Presence of an ODC No (must be 13 digits)
+        - Presence of an S. No (must be 13 digits)
+        - Presence of a name preceded by the statement 'This is to certify that' (case-insensitive)
+        - The top heading must exactly match 'State Board of Technical Education and Training' (case-insensitive)
+    
+    Return JSON with extracted details and validation flags:
+    {
+      "extracted": {
+        "odc_no": "",
+        "s_no": "",
+        "name": "",
+        "top_heading": ""
+      },
+      "valid_odc_no": false,
+      "valid_s_no": false,
+      "has_name_after_statement": false,
+      "valid_top_heading": false,
+      "valid": false
+    }
+    """
+
+    try:
+        try:
+            image = Image.open(io.BytesIO(image_data))
+            print("Opened as image", flush=True)
+        except Exception as img_e:
+            print("Not an image, trying PDF...", flush=True)
+            # Try to convert PDF to image (first page)
+            try:
+                images = convert_from_bytes(image_data, first_page=1, last_page=1)
+                image = images[0]
+                print("PDF converted to image", flush=True)
+            except Exception as pdf_e:
+                print("Failed to convert PDF to image", flush=True)
+                raise pdf_e
+        response = model.generate_content([prompt, image], stream=False)
+        result_text = response.text
+        print(result_text)
+        
+        # Extract JSON from response
+        json_start = result_text.find('{')
+        json_end = result_text.rfind('}') + 1
+        json_part = result_text[json_start:json_end]
+        result = json.loads(json_part)
+        
+        # Final validation
+        result["valid"] = (
+            result.get("valid_odc_no", False) and
+            result.get("valid_s_no", False) and
+            result.get("has_name_after_statement", False) and
+            result.get("valid_top_heading", False)
+        )
+        
+        return result
+        
+    except Exception as e:
+        return {
+            "extracted": {
+                "odc_no": "",
+                "s_no": "",
+                "name": "",
+                "top_heading": ""
+            },
+            "valid_odc_no": False,
+            "valid_s_no": False,
+            "has_name_after_statement": False,
+            "valid_top_heading": False,
             "valid": False,
             "error": str(e)
         }
