@@ -419,7 +419,8 @@
 
                 const formData = new FormData();
                 formData.append('file', fileInput.files[0]);
-                formData.append('appointment_date', selectedDate.toISOString().split('T')[0]);
+                const localDateStr = `${selectedDate.getFullYear()}-${(selectedDate.getMonth() + 1).toString().padStart(2, '0')}-${selectedDate.getDate().toString().padStart(2, '0')}`;
+                formData.append('appointment_date', localDateStr);
                 formData.append('time_slot', selectedTimeSlot);
 
                 try {

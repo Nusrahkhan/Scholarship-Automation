@@ -8,10 +8,11 @@ from pdf2image import convert_from_bytes
 
 
 
+
 # Configure Gemini API
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 genai.configure(api_key=GEMINI_API_KEY)
-model = genai.GenerativeModel('gemini-1.5-flash')
+model = genai.GenerativeModel('gemini-2.0-flash-lite')
 
 # Aadhaar detail extraction
 def extract_aadhar_details(image_data):
@@ -298,20 +299,23 @@ def verify_original_income_certificate_details(image_data):
         }
     
 #document 3 - Income Declaration Form
+#changed
 def verify_declaration_form_details(image_data):
     prompt = """
     You are an intelligent OCR system. Given an image of an Income Declaration Form:
     1. Extract these details:
+        - Heading
         - Applicant Name
         - Total Family Annual Income
     2. Verify these critical elements:
-        - Presence of a heading containing 'INCOME DECLARATION FORM' (case-insensitive)
+        - The heading must exactly match one of the following: 'INCOME DECLARATION FORM' (case-insensitive). No other heading variations are allowed.
         - Presence of a side heading containing 'Name & Signature of the Student' (case-insensitive)
         - Presence of total family annual income
     
     Return JSON with extracted details and validation flags:
     {
       "extracted": {
+        "heading": "",
         "name": "",
         "total_family_income": ""
       },
@@ -345,6 +349,7 @@ def verify_declaration_form_details(image_data):
     except Exception as e:
         return {
             "extracted": {
+                "heading": "",
                 "name": "",
                 "total_family_income": ""
             },
@@ -356,38 +361,36 @@ def verify_declaration_form_details(image_data):
         }
 
 #document 4 - Current Bonafide
-from datetime import datetime
-import io
-import json
-from PIL import Image
-
+#changed
 def verify_current_bonafide_details(image_data):
     current_year = datetime.now().year
-    prompt = f"""
+    prompt = """
     You are an intelligent OCR system. Given an image of a BE Bonafide Certificate:
     1. Extract these details:
+        - Heading
         - Applicant Name
         - Roll Number
         - College Name
     2. Verify these critical elements:
-        - Presence of a heading containing 'BONAFIDE CERTIFICATE' or 'BE BONAFIDE CERTIFICATE' (case-insensitive)
+        - The heading must exactly match one of the following: 'BONAFIDE CERTIFICATE', 'BE BONAFIDE CERTIFICATE' or 'Bonafide/Conduct Certificate' (case-insensitive). No other heading variations are allowed.
         - Presence of a name
         - College name must be 'MUFFAKHAM JAH COLLEGE OF ENGINEERING & TECHNOLOGY' (case-insensitive)
         - Presence of a roll number
     
     Return JSON with extracted details and validation flags:
-    {{
-      "extracted": {{
+    {
+      "extracted": {
+        "heading": "",
         "name": "",
         "roll_number": "",
         "college_name": ""
-      }},
+      },
       "valid_heading": false,
       "has_name": false,
       "valid_college_name": false,
       "has_roll_number": false,
       "valid": false
-    }}
+    }
     """
 
     try:
@@ -425,6 +428,7 @@ def verify_current_bonafide_details(image_data):
     except Exception as e:
         return {
             "extracted": {
+                "heading": "",
                 "name": "",
                 "roll_number": "",
                 "college_name": "",
@@ -519,11 +523,14 @@ def verify_inter_bonafide_details(image_data):
             "valid": False,
             "error": str(e)
         }
+    
 #document 5.2 - School Bonafide
+#changed
 def verify_tenth_bonafide_details(image_data):
     prompt = """
     You are an intelligent OCR system. Given an image of a 10th Bonafide Certificate:
     1. Extract these details:
+        - Heading
         - Applicant Name
         - Institution Name or School Name
     2. Verify these critical elements:
@@ -534,6 +541,7 @@ def verify_tenth_bonafide_details(image_data):
     Return JSON with extracted details and validation flags:
     {
       "extracted": {
+        "heading": "",
         "name": "",
         "institution_name": ""
       },
@@ -577,6 +585,7 @@ def verify_tenth_bonafide_details(image_data):
     except Exception as e:
         return {
             "extracted": {
+                "heading": "",
                 "name": "",
                 "institution_name": ""
             },
@@ -588,19 +597,24 @@ def verify_tenth_bonafide_details(image_data):
         }
 
 
-
-
 #document 6 - Tenth Memo
+#changed
 def verify_tenth_memo_details(image_data):
     prompt = """
     You are an intelligent OCR system. Given an image of a 10th Marks Memorandum:
     1. Extract these details:
+        - Heading
         - Applicant Name
         - Roll Number
         - Date
         - Board or Examination Name
     2. Verify these critical elements:
-        - Presence of a heading containing 'MEMORANDUM OF MARKS', '10TH CLASS MEMORANDUM OF MARKS', '10TH MEMO', or 'edexcel', or 'SECONDARY SCHOOL CERTIFICATE' (case-insensitive)
+        - Heading must match (case-insensitive, exact match) one of:
+            'MEMORANDUM OF MARKS', 
+            '10TH CLASS MEMORANDUM OF MARKS',
+            '10TH MEMO',
+            'edexcel',
+            'SECONDARY SCHOOL CERTIFICATE'        
         - Presence of a name
         - Presence of a roll number (with forms like 'Roll no.', 'Roll number', or 'UCI')
         - Presence of a date
@@ -609,6 +623,7 @@ def verify_tenth_memo_details(image_data):
     Return JSON with extracted details and validation flags:
     {
       "extracted": {
+        "heading": "",
         "name": "",
         "roll_number": "",
         "date": "",
@@ -639,7 +654,13 @@ def verify_tenth_memo_details(image_data):
             except Exception as pdf_e:
                 raise pdf_e
   
-        response = model.generate_content([prompt, image], stream=False)
+        try:
+            print("Calling Gemini model...", flush=True)
+            response = model.generate_content([prompt, image], stream=False)
+            print("Got response from Gemini", flush=True)
+        except Exception as e:
+            print("Gemini API error:", e, flush=True)
+            return {"error": "Gemini API failure", "details": str(e)}
         result_text = response.text
         
         
@@ -664,6 +685,7 @@ def verify_tenth_memo_details(image_data):
     except Exception as e:
         return {
             "extracted": {
+                "heading": "",
                 "name": "",
                 "roll_number": "",
                 "date": "",
@@ -679,15 +701,20 @@ def verify_tenth_memo_details(image_data):
         }
 
 #document 7 - Inter Memo
+#changed
 def verify_inter_memo_details(image_data):
     prompt = """
     You are an intelligent OCR system. Given an image of an Intermediate Marks Memorandum:
     1. Extract these details:
+        - Heading
         - Applicant Name
         - Roll Number
         - Board Name
     2. Verify these critical elements:
-        - The heading must exactly match one of the following:'INTERMEDIATE PASS CERTIFICATE-CUM-MEMORANDUM OF MARKS' or 'INTER MEMO' (case-insensitive). No other heading variations are allowed.
+        - Heading must match (case-insensitive, exact match) one of: 
+            'INTERMEDIATE PASS CERTIFICATE-CUM-MEMORANDUM OF MARKS',
+            'MEMORANDUM OF MARKS',
+            'INTER MEMO' 
         - Presence of a name
         - Presence of a roll number
         - Presence of a board name (e.g., 'TELENGANA STATE BOARD OF INTERMEDIATE EDUCATION')
@@ -695,6 +722,7 @@ def verify_inter_memo_details(image_data):
     Return JSON with extracted details and validation flags:
     {
       "extracted": {
+        "heading": "",
         "name": "",
         "roll_number": "",
         "board": ""
@@ -741,6 +769,7 @@ def verify_inter_memo_details(image_data):
     except Exception as e:
         return {
             "extracted": {
+                "heading": "",
                 "name": "",
                 "roll_number": "",
                 "board": ""
@@ -840,20 +869,23 @@ def verify_previous_sem_memo_details(image_data, year, roll_number):
         }
 
 #document 9 - Ration Card
+#changed
 def verify_ration_card_details(image_data):
     prompt = """
     You are an intelligent OCR system. Given an image of a Ration Card:
     1. Extract these details:
+        - Heading
         - Applicant Name
         - Ration Card Number or Application Number or Meeseva Application Number or Meeseva Number
     2. Verify these critical elements:
-        - Presence of a heading containing 'RATION CARD', 'RATION CARD DETAILS', or 'RATION CARD MEMBER DETAILS' (case-insensitive)
+        - The heading must exactly match one of the following: 'RATION CARD', 'RATION CARD DETAILS', or 'RATION CARD MEMBER DETAILS' (case-insensitive)
         - Presence of a name
         - Presence of a ration card number, application number, Meeseva application number, or Meeseva number
     
     Return JSON with extracted details and validation flags:
     {
       "extracted": {
+        "heading": "",
         "name": "",
         "number": ""
       },
@@ -901,6 +933,7 @@ def verify_ration_card_details(image_data):
     except Exception as e:
         return {
             "extracted": {
+                "heading": "",
                 "name": "",
                 "number": ""
             },
@@ -987,10 +1020,12 @@ def verify_bank_passbook_details(image_data):
         }
 
 #document 12 - Allotment Order
+#changed
 def verify_allotment_order_details(image_data):
     prompt = """
     You are an intelligent OCR system. Given an image of an Allotment Order:
     1. Extract these details:
+        - Heading
         - Name
         - Hall Ticket Number
         - Rank
@@ -1003,6 +1038,7 @@ def verify_allotment_order_details(image_data):
     Return JSON with extracted details and validation flags:
     {
       "extracted": {
+        "heading": "",
         "name": "",
         "hall_ticket_number": "",
         "rank": ""
@@ -1052,6 +1088,7 @@ def verify_allotment_order_details(image_data):
     except Exception as e:
         return {
             "extracted": {
+                "heading": "",
                 "name": "",
                 "hall_ticket_number": "",
                 "rank": ""
@@ -1066,11 +1103,13 @@ def verify_allotment_order_details(image_data):
 
 
 #document 13 - OU Common Service Fee
+#changed
 def verify_ou_common_service_fee_details(image_data):
     current_year = datetime.now().year
     prompt = """
     You are an intelligent OCR system. Given an image of an OU Common Services Fee document:
     1. Extract these details:
+        - Heading
         - Student Name
         - Date
     2. Verify these critical elements:
@@ -1083,6 +1122,7 @@ def verify_ou_common_service_fee_details(image_data):
     Return JSON with extracted details and validation flags:
     {
       "extracted": {
+        "heading": "",
         "student_name": "",
         "date": ""
       },
@@ -1135,6 +1175,7 @@ def verify_ou_common_service_fee_details(image_data):
     except Exception as e:
         return {
             "extracted": {
+                "heading": "",
                 "student_name": "",
                 "date": ""
             },
@@ -1149,10 +1190,12 @@ def verify_ou_common_service_fee_details(image_data):
 
 
 #document 16 - Caste Certificate
+#changed
 def verify_caste_certificate_details(image_data):
     prompt = """
     You are an intelligent OCR system. Given an image of a Caste Certificate:
     1. Extract these details:
+        - Heading
         - Applicant Name (appearing after the statement 'This is to certify that Sri/Srimathi/Kumari')
         - Community Serial No
         - Application No
@@ -1165,6 +1208,7 @@ def verify_caste_certificate_details(image_data):
     Return JSON with extracted details and validation flags:
     {
       "extracted": {
+        "heading": "",
         "name": "",
         "community_serial_no": "",
         "application_no": ""
@@ -1213,6 +1257,7 @@ def verify_caste_certificate_details(image_data):
     except Exception as e:
         return {
             "extracted": {
+                "heading": "",
                 "name": "",
                 "community_serial_no": "",
                 "application_no": ""
@@ -1224,7 +1269,7 @@ def verify_caste_certificate_details(image_data):
             "valid": False,
             "error": str(e)
         }
-
+    
 #document 15 - Attendance form
 def verify_attendance_form_details(image_data):
     current_year = datetime.now().year
@@ -1494,7 +1539,6 @@ def verify_inter_tc_details(image_data):
     
 #document 17 - Meeseva Slip
 def verify_meeseva_slip_details(image_data):
-    current_year = datetime.now().year
     print("hello inside meeseva slip")
     prompt = """
     You are an intelligent OCR system. Given an image of a Meeseva Slip:
@@ -1638,6 +1682,175 @@ def verify_diploma_bonafide_details(image_data):
             "valid_s_no": False,
             "has_name_after_statement": False,
             "valid_top_heading": False,
+            "valid": False,
+            "error": str(e)
+        }
+    
+#document 17 - LE Consolidated Memo
+def verify_diploma_consolidated_memo_details(image_data):
+    prompt = """
+    You are an intelligent OCR system. Given an image of a Diploma Consolidated Memo:
+    1. Extract these details:
+        - Top Heading
+        - Heading in a Box
+        - Applicant Name
+        - Institution Name
+    2. Verify these critical elements:
+        - The top heading must exactly match 'STATE BOARD OF TECHNICAL EDUCATION AND TRAINING TELANGANA' (case-insensitive)
+        - The heading in a box must exactly match 'CONSOLIDATED MEMORANDUM OF GRADES' (case-insensitive)
+        - Presence of a name
+        - Presence of an institution name
+    
+    Return JSON with extracted details and validation flags:
+    {
+      "extracted": {
+        "top_heading": "",
+        "heading_in_box": "",
+        "name": "",
+        "institution_name": ""
+      },
+      "valid_top_heading": false,
+      "valid_heading_in_box": false,
+      "has_name": false,
+      "has_institution_name": false,
+      "valid": false
+    }
+    """
+
+    try:
+        try:
+            image = Image.open(io.BytesIO(image_data))
+            print("Opened as image", flush=True)
+        except Exception as img_e:
+            print("Not an image, trying PDF...", flush=True)
+            # Try to convert PDF to image (first page)
+            try:
+                images = convert_from_bytes(image_data, first_page=1, last_page=1)
+                image = images[0]
+                print("PDF converted to image", flush=True)
+            except Exception as pdf_e:
+                print("Failed to convert PDF to image", flush=True)
+                raise pdf_e
+        response = model.generate_content([prompt, image], stream=False)
+        result_text = response.text
+        print(result_text)
+        
+        # Extract JSON from response
+        json_start = result_text.find('{')
+        json_end = result_text.rfind('}') + 1
+        json_part = result_text[json_start:json_end]
+        result = json.loads(json_part)
+        
+        # Final validation
+        result["valid"] = (
+            result.get("valid_top_heading", False) and
+            result.get("valid_heading_in_box", False) and
+            result.get("has_name", False) and
+            result.get("has_institution_name", False)
+        )
+        
+        return result
+        
+    except Exception as e:
+        return {
+            "extracted": {
+                "top_heading": "",
+                "heading_in_box": "",
+                "name": "",
+                "institution_name": ""
+            },
+            "valid_top_heading": False,
+            "valid_heading_in_box": False,
+            "has_name": False,
+            "has_institution_name": False,
+            "valid": False,
+            "error": str(e)
+        }
+    
+#document 18 - LE Transfer Certificate
+def verify_diploma_transfer_certificate_details(image_data):
+    prompt = """
+    You are an intelligent OCR system. Given an image of a Diploma Transfer Certificate:
+    1. Extract these details:
+        - Main Heading
+        - Underlined Heading
+        - Applicant Name
+        - Date of Birth
+        - Admission Number
+    2. Verify these critical elements:
+        - The main heading must include the word 'Polytechnic' (case-insensitive)
+        - The underlined heading must exactly match 'TRANSFER CERTIFICATE' (case-insensitive)
+        - Presence of a name
+        - Presence of a date of birth
+        - Presence of an admission number
+    
+    Return JSON with extracted details and validation flags:
+    {
+      "extracted": {
+        "main_heading": "",
+        "underlined_heading": "",
+        "name": "",
+        "date_of_birth": "",
+        "admission_number": ""
+      },
+      "valid_main_heading": false,
+      "valid_underlined_heading": false,
+      "has_name": false,
+      "has_date_of_birth": false,
+      "has_admission_number": false,
+      "valid": false
+    }
+    """
+
+    try:
+        try:
+            image = Image.open(io.BytesIO(image_data))
+            print("Opened as image", flush=True)
+        except Exception as img_e:
+            print("Not an image, trying PDF...", flush=True)
+            # Try to convert PDF to image (first page)
+            try:
+                images = convert_from_bytes(image_data, first_page=1, last_page=1)
+                image = images[0]
+                print("PDF converted to image", flush=True)
+            except Exception as pdf_e:
+                print("Failed to convert PDF to image", flush=True)
+                raise pdf_e
+        response = model.generate_content([prompt, image], stream=False)
+        result_text = response.text
+        print(result_text)
+        
+        # Extract JSON from response
+        json_start = result_text.find('{')
+        json_end = result_text.rfind('}') + 1
+        json_part = result_text[json_start:json_end]
+        result = json.loads(json_part)
+        
+        # Final validation
+        result["valid"] = (
+            result.get("valid_main_heading", False) and
+            result.get("valid_underlined_heading", False) and
+            result.get("has_name", False) and
+            result.get("has_date_of_birth", False) and
+            result.get("has_admission_number", False)
+        )
+        
+        return result
+        
+    except Exception as e:
+        return {
+            "extracted": {
+                "main_heading": "",
+                "underlined_heading": "",
+                "name": "",
+                "date_of_birth": "",
+                "admission_number": ""
+            },
+            "valid_main_heading": False,
+            "valid_underlined_heading": False,
+            "has_name": False,
+            "has_date_of_birth": False,
+            "has_admission_number": False,
             "valid": False,
             "error": str(e)
         }

@@ -423,6 +423,7 @@ def admin_dashboard():
 
         # Get today's appointments
         today = datetime.now().date()
+        print(today)
         # Get today's appointments with join to get student and application details
         recent_appointments = db.session.query(
             Appointment, 
@@ -432,13 +433,14 @@ def admin_dashboard():
             Appointment.application_id == ScholarshipApplication.id
         ).join(
             Student,
-            func.substr(Student.email, 1, func.instr('@', Student.email) - 1) == ScholarshipApplication.roll_number
+            func.substr(Student.email, 1, func.length(Student.email) - func.length(func.substr(Student.email, func.instr(Student.email, '@')))) == ScholarshipApplication.roll_number
         ).filter(
             Appointment.appointment_date == today
         ).order_by(Appointment.time_slot).all()
 
         # Count total appointments for today
         today_appointments = len(recent_appointments)
+        print(today_appointments)
 
 
         # Count pending appointments (state is 'appointment_booked')
@@ -479,6 +481,33 @@ def admin_dashboard():
     except Exception as e:
         print(f"Error loading admin dashboard: {str(e)}")
         return redirect(url_for('admin_login'))
+    
+# route for admin to view meeseva slip of students
+@app.route('/view_slip/<int:application_id>')
+def view_slip(application_id):
+    if 'admin_id' not in session or session.get('user_type') != 'admin':
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    # Find the appointment by application_id
+    appointment = Appointment.query.filter_by(application_id=application_id).first()
+    if not appointment or not appointment.slip_data:
+        return jsonify({'error': 'No slip found'}), 404
+
+    # Determine file type for Content-Type header
+    filename = appointment.slip_name or "slip.pdf"
+    file_ext = filename.split('.')[-1].lower()
+    content_types = {
+        'pdf': 'application/pdf',
+        'jpg': 'image/jpeg',
+        'jpeg': 'image/jpeg',
+        'png': 'image/png'
+    }
+    content_type = content_types.get(file_ext, 'application/octet-stream')
+
+    response = make_response(appointment.slip_data)
+    response.headers['Content-Type'] = content_type
+    response.headers['Content-Disposition'] = f'inline; filename={filename}'
+    return response
     
 # Add new route to handle appointment completion
 @app.route('/complete_appointment/<string:application_id>', methods=['POST'])
@@ -1444,7 +1473,7 @@ def upload_bank_passbook():
     return jsonify(details)
 
 
-#document 13
+#document OU common service fee
 @app.route('/upload_ou_common_service_fee', methods=['POST'])
 def upload_ou_common_service_fee():
     if 'file' not in request.files:
@@ -1499,6 +1528,7 @@ def upload_attendance_form():
     details = verify_attendance_form_details(image_data)
     return jsonify(details)
 
+#LATERAL ENTRY VERIFICATIONS
 #document diploma bonafide
 @app.route('/upload_diploma_bonafide', methods=['POST'])
 def upload_diploma_bonafide():
@@ -1508,6 +1538,28 @@ def upload_diploma_bonafide():
     file = request.files['file']
     image_data = file.read()
     details = verify_diploma_bonafide_details(image_data)
+    return jsonify(details)
+
+#LE TC
+@app.route('/upload_diploma_tc', methods=['POST'])
+def upload_diploma_tc():
+    if 'file' not in request.files:
+        return jsonify({"error": "No file uploaded", "valid": False}), 400
+        
+    file = request.files['file']
+    image_data = file.read()
+    details = verify_diploma_transfer_certificate_details(image_data)
+    return jsonify(details)
+
+#LE memo
+@app.route('/upload_diploma_memo', methods=['POST'])
+def upload_diploma_memo():
+    if 'file' not in request.files:
+        return jsonify({"error": "No file uploaded", "valid": False}), 400
+        
+    file = request.files['file']
+    image_data = file.read()
+    details = verify_diploma_consolidated_memo_details(image_data)
     return jsonify(details)
 
 # Mark documents as verified for a particular scholarship application

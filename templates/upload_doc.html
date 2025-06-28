@@ -654,7 +654,7 @@
                 return result;
             }
             else if (documentType === 'diploma_memo') {
-                const response = await fetch('/upload_inter_memo', {
+                const response = await fetch('/upload_diploma_memo', {
                     method: 'POST',
                     body: formData
                 });
@@ -681,7 +681,7 @@
                 return result;
             }
             else if (documentType === 'diploma_transfer') {
-                const response = await fetch('/upload_intermediate_tc', {
+                const response = await fetch('/upload_diploma_tc', {
                     method: 'POST',
                     body: formData
                 });

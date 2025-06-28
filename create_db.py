@@ -34,13 +34,13 @@ app.config.update(
 from models import db
 db.init_app(app)
 
-from models import Student, Admin, Teacher, Circular, TeacherUnavailability, ScholarshipApplication, OTP
+from models import Student, Admin, Teacher, TeacherUnavailability, ScholarshipApplication, OTP, Circular, Appointment
 
 
 def create_database():
     try:
         with app.app_context():
-            for table in [OTP, ScholarshipApplication, TeacherUnavailability, Circular, Teacher, Admin, Student]:
+            for table in [Student, Admin, Teacher, TeacherUnavailability, ScholarshipApplication, OTP, Circular, Appointment]:
                 db.session.query(table).delete()
             db.session.commit()
             print("Cleared all old records from all tables")
