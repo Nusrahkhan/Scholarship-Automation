@@ -37,54 +37,39 @@ The Scholarship Automation System is a web-based platform designed to simplify a
 - Upload time table 
 
 
+## 📊 Process Structure
+
+```
+scholarship-portal/
+├── main.py                     # 🔷 Flask entry point
+├── models.py                   # 🧩 SQLAlchemy database models
+├── utils.py                    # ⚙️ Utility/helper functions
+├── create_db.py                # 🛠️ DB initialization script
+├── requirements.txt            # 📦 Python dependencies
+├── Scholarship rag.pdf         # 📚 PDF used to train RAG chatbot
+├── rag.py                      # 🤖 RAG-based Q&A chatbot
+├── document_verification.py    # 🧠 Gemini-based document validation
+├── static/                     # 🎨 Static assets (CSS, JS, uploads)
+│   ├── css/
+│   ├── js/
+│   └── uploads/
+└── templates/                  # 🖼️ HTML templates for rendering views
+```
+
+
 
 ## 🛠 Technology Stack
 
-### Backend
-- Python 3.x
-- Flask
-- SQLAlchemy
-- SQLite
+🛠️ Tech Stack
 
-### Frontend
-- HTML5
-- TailwindCSS
-- JavaScript
-- Font Awesome Icons
+    Backend: Python, Flask
 
-### Authentication
-- Session-based authentication
-- Email verification
+    Frontend: HTML, CSS, JavaScript
 
-### 🔍 OCR Capabilities
-- Document text extraction using Tesseract OCR
-- Support for multiple document types:
-  - Aadhaar Card
-  - Allotment Orders
-  - Bonafide Certificates
-  - Previous Memos
-  - Transfer Certificates
-- Advanced preprocessing for better accuracy:
-  - Image enhancement
-  - Rotation correction
-  - Noise reduction
-  - Handwritten text detection
-- Smart validation system:
-  - Keyword detection
-  - Pattern matching
-  - Document type classification
-  - Error correction for common OCR mistakes
-- Quality assessment:
-  - Confidence scoring
-  - Multiple OCR strategies
-  - Best result selection
+    AI/ML: Gemini (Google), RAG (Custom-trained)
 
-### OCR Dependencies
-- Tesseract OCR Engine
-- OpenCV for image processing
-- PIL/Pillow for image handling
-- NumPy for array operations
-- python-tesseract wrapper
+    Database: SQLite
+
 
 ## Installation
 
@@ -123,25 +108,6 @@ python create_db.py
 6. Run the application
 ```bash
 python main.py
-```
-
-
-## 📊 Process Structure
-
-```
-scholarship-portal/
-├── main.py                 # Application entry point
-├── models.py              # Database models
-├── utils.py              # Utility functions
-├── create_db.py          # Database initialization
-├── requirements.txt      # Project dependencies
-├── static/              # Static files
-│   ├── css/           # Stylesheets
-│   ├── js/           # JavaScript files
-│   └── uploads/      # Uploaded files
-└── templates/         # HTML templates
-    ├── admin/       # Admin templates
-    └── student/     # Student templates
 ```
 
 

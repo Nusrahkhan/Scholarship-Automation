@@ -199,7 +199,7 @@
                         </div>
                     </div>
                     <div class="flex-grow flex items-center justify-center">
-                        <span class="text-4xl font-bold text-[#2B124C]">{{ pending_appointments|default(0) }}</span>
+                        <span id="pending-count" class="text-4xl font-bold text-[#2B124C]">{{ pending_appointments|default(0) }}</span>
                     </div>
                 </div>
                 <!-- Approved Today Card -->
@@ -214,7 +214,7 @@
                         </div>
                     </div>
                     <div class="flex-grow flex items-center justify-center">
-                        <span class="text-4xl font-bold text-[#2B124C]">{{ approved_today|default(0) }}</span>
+                        <span id="approved-count" class="text-4xl font-bold text-[#2B124C]">{{ approved_today|default(0) }}</span>
                     </div>
                 </div>
             </div>
@@ -390,8 +390,16 @@
                     }
                     
                     // Update stats
-                    const completedCount = document.querySelector('.text-4xl.font-bold');
-                    completedCount.textContent = parseInt(completedCount.textContent) + 1;
+                    //const completedCount = document.querySelector('.text-4xl.font-bold');
+                    //completedCount.textContent = parseInt(completedCount.textContent) + 1;
+                    const pendingCount = document.getElementById('pending-count');
+                    const approvedCount = document.getElementById('approved-count');
+                    if (pendingCount && approvedCount) {
+                        let pending = parseInt(pendingCount.textContent);
+                        let approved = parseInt(approvedCount.textContent);
+                        if (pending > 0) pendingCount.textContent = pending - 1;
+                        approvedCount.textContent = approved + 1;
+                    }
                     
                     alert('Appointment marked as completed');
                 } else {
