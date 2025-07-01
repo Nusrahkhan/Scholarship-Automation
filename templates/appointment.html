@@ -585,31 +585,42 @@
 
                 // Parse the time string to get hour and minute
                 const [time, period] = timeStr.split(' ');
-                const [hour, minute] = time.split(':').map(num => parseInt(num, 10));
+                let [hour, minute] = time.split(':').map(num => parseInt(num, 10));
+
+                // Convert to 24-hour format for comparison
+                let slotHour = hour % 12;
+                if (period === 'PM') slotHour += 12;
+                if (hour === 12 && period === 'AM') slotHour = 0; // midnight edge case
 
                 // Calculate end time (30 minutes later)
-                let endHour = hour;
+                let endHour = slotHour;
                 let endMinute = minute + 30;
-                let endPeriod = period;
-
                 if (endMinute >= 60) {
                     endMinute = 0;
                     endHour += 1;
+                }
 
-                    // Handle period change (AM to PM)
-                    if (endHour === 12 && period === 'AM') {
-                        endPeriod = 'PM';
+                // Format the end time for display
+                let displayEndHour = endHour % 12 || 12;
+                let displayEndMinute = endMinute === 0 ? '00' : endMinute;
+                let endPeriod = endHour >= 12 ? 'PM' : 'AM';
+
+                slotEl.textContent = `${hour % 12 || 12}:${String(minute).padStart(2, '0')}-${displayEndHour}:${displayEndMinute} ${endPeriod}`;
+
+                // Disable slot if it's today and the slot end time is in the past
+                const now = new Date();
+                if (
+                    selectedDate &&
+                    now.toDateString() === selectedDate.toDateString()
+                ) {
+                    const slotEnd = new Date(selectedDate);
+                    slotEnd.setHours(endHour, endMinute, 0, 0);
+                    if (slotEnd <= now) {
+                        slotEl.classList.add('disabled', 'booked');
+                        slotEl.disabled = true;
                     }
                 }
 
-                // Format the end time
-                const endTime = `${endHour}:${endMinute === 0 ? '00' : endMinute}`;
-
-                // Set the time slot text to show the interval
-                slotEl.textContent = `${time}-${endTime} ${period}`;
-
-                // Remove random booking logic
-                // All slots will be available
                 slotEl.addEventListener('click', function () {
                     // Deselect all slots
                     document.querySelectorAll('.time-slot').forEach(slot => {
@@ -618,7 +629,7 @@
 
                     // Select this slot
                     this.classList.add('selected');
-                    selectedTimeSlot = `${time}-${endTime} ${period}`;
+                    selectedTimeSlot = slotEl.textContent;
                     confirmSlotBtn.disabled = false;
                 });
 
